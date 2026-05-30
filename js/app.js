@@ -23,6 +23,7 @@
   let paused    = false;
   let simSpeed  = 1;
   let turboMode = false;
+  let raceMode  = false; // Modo Corrida: 200 carros da melhor população salva
 
   const charts = { fitness: null, distance: null };
   const historicoGeracoes = { pista0: "N/A", pista1: "N/A", pista2: "N/A" };
@@ -135,16 +136,15 @@
             showToast(`🏆 ${trackNames[track.index].toUpperCase()} COMPLETADA! Gen ${ga.generation} — Salvo.`);
             updateStorageStatus();
             if (storage.isProjectComplete()) {
-              // Não trava a simulação caso queiram ver outros sobreviventes, mas indica sucesso
               document.body.classList.add("project-complete");
             }
           }
         });
 
-        // Qualquer carro ainda vivo → continua o step físico
-        if (anyAlive) break;
+        // Enquanto houver carros vivos, continua os steps (não quebra — isso é o que o turbo precisa)
+        if (anyAlive) continue;
 
-        // Toda a população morreu (ou completou): evolui
+        // Toda a população morreu (ou completou): evolui e sai do loop de steps
         const carrosVivos = ga.population.filter(c => c.alive).length;
         if (carrosVivos === 0) {
           const autoProg = document.getElementById("chk-auto-progression")?.checked;
@@ -246,9 +246,32 @@
    * Usa APENAS completadores como semente (via getSeedBrainsForTrack).
    */
   function resetSimulation() {
+    raceMode = false;
     const seeds = storage.getSeedBrainsForTrack(track.index);
     const ghost = storage.getGhostPath(track.index);
     ga.createInitialPopulation(track, seeds.length ? seeds : null, ghost);
+    updateHUD();
+  }
+
+  /**
+   * Modo Corrida: população de 200 baseada na MELHOR população salva.
+   * Usa todos os melhores genomas do storage (não só 1 carro).
+   */
+  function startRaceMode() {
+    raceMode = true;
+    ga.generation = 1;
+    const allBestBrains = storage.getAllBestBrains();
+    const ghost = storage.getGhostPath(track.index);
+
+    if (allBestBrains.length === 0) {
+      showToast("\u26a0\ufe0f Nenhum gen\u00f4ma salvo! Treine primeiro.");
+      raceMode = false;
+      return;
+    }
+
+    ga.createRacePopulation(track, allBestBrains, ghost);
+    paused = false;
+    showToast(`\ud83c\udfc1 MODO CORRIDA! ${allBestBrains.length} gen\u00f4ma(s) \u2192 200 carros na pista!`);
     updateHUD();
   }
 
@@ -294,6 +317,9 @@
       ga.generation = 1;
       resetSimulation();
       showToast("População reiniciada com sementes salvas.");
+    });
+    document.getElementById("btn-race")?.addEventListener("click", () => {
+      startRaceMode();
     });
     document.getElementById("btn-fechar-modal")?.addEventListener("click", () => {
       const m = document.getElementById("modal-resumo");

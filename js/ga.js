@@ -87,6 +87,60 @@
       }
     }
 
+    /**
+     * Modo Corrida: cria população de 200 baseada na MELHOR população salva.
+     * Usa o melhor genoma disponível e gera 200 variações com mutação mínima
+     * para uma corrida competitiva com diversidade controlada.
+     *
+     * @param {Track} track - pista atual
+     * @param {Array} raceSeeds - array de brains JSON vindos do storage (melhor primeiro)
+     * @param {*} ghostPath - ghost path opcional
+     */
+    createRacePopulation(track, raceSeeds = null, ghostPath = null) {
+      this.population = [];
+      this.ghostPath  = ghostPath;
+
+      const hasSeeds = raceSeeds && raceSeeds.length > 0;
+
+      if (!hasSeeds) {
+        // Sem seeds: cria população aleatória de 200
+        for (let i = 0; i < this.populationSize; i++) {
+          const brain = new NeuralNetwork();
+          brain.mutate(0.25, 0.15, false);
+          this.population.push(new Car(brain, track, {
+            generation: this.generation,
+            ghostPath:  this.ghostPath,
+          }));
+        }
+        return;
+      }
+
+      const seedCount = raceSeeds.length;
+
+      for (let i = 0; i < this.populationSize; i++) {
+        // Cicla pelos seeds disponíveis (round-robin)
+        const srcJSON  = raceSeeds[i % seedCount];
+        const srcBrain = NeuralNetwork.fromJSON(srcJSON);
+
+        if (i < seedCount) {
+          // Primeiros N (um por seed): entra PURO — representantes fiéis de cada genoma salvo
+          this.population.push(new Car(srcBrain, track, {
+            generation: this.generation,
+            ghostPath:  this.ghostPath,
+          }));
+        } else {
+          // Restantes: variações com mutação mínima para diversidade na corrida
+          // Mutação decresce conforme mais carros são criados (elites mais fiéis ao original)
+          const mutStrength = i < seedCount * 3 ? 0.02 : 0.06;
+          srcBrain.mutate(0.03, mutStrength, true); // mutação mínima, isElite=true
+          this.population.push(new Car(srcBrain, track, {
+            generation: this.generation,
+            ghostPath:  this.ghostPath,
+          }));
+        }
+      }
+    }
+
     // ── Seleção por torneio ────────────────────────────────────────────────
     tournamentSelect(pool) {
       let best = null;

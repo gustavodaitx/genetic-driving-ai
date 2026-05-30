@@ -172,6 +172,41 @@
       return this.getSeedBrainsForTrack(trackIndex);
     }
 
+    /**
+     * Retorna os melhores genomas disponíveis de TODAS as pistas,
+     * ordenados por fitness. Usado pelo Modo Corrida para semear
+     * uma população de 200 com os melhores cérebros já salvos.
+     *
+     * Inclui completadores e (como fallback) os melhores do histórico geral.
+     */
+    getAllBestBrains() {
+      const brains = [];
+      const seen   = new Set();
+
+      const add = (entry) => {
+        if (!entry || !entry.brain) return;
+        const sig = JSON.stringify(entry.brain.genome || entry.brain).slice(0, 80);
+        if (seen.has(sig)) return;
+        seen.add(sig);
+        brains.push({ brain: entry.brain, fitness: entry.fitness || 0 });
+      };
+
+      // 1. Universais (melhor prioridade)
+      this.data.universalCompleters.forEach(add);
+
+      // 2. Completadores de cada pista
+      [0, 1, 2].forEach(idx => {
+        (this.data.completersByTrack[String(idx)] || []).forEach(add);
+      });
+
+      // 3. Histórico geral como fallback (inclui não-completadores com bom fitness)
+      this.data.history.forEach(add);
+
+      // Ordena por fitness descendente e retorna apenas os brains JSON
+      brains.sort((a, b) => b.fitness - a.fitness);
+      return brains.map(b => b.brain);
+    }
+
     // ─── Queries ────────────────────────────────────────────────────────────
     isTrackCompleted(trackIndex)  { return this.data.completedTracks.includes(trackIndex); }
     isProjectComplete()           { return this.data.projectComplete; }
