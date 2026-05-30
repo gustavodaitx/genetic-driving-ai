@@ -15,6 +15,8 @@
   const storage    = new StorageManager();
   window.storageInstance = storage; // exposto para o modal
 
+  const trackNames = ["Mônaco", "Monza", "Interlagos"];
+
   let track     = new Track(0);
   let ga        = new GeneticAlgorithm();
   let running   = true;
@@ -71,7 +73,7 @@
     set("hud-alive",         ga.population.filter(c => c.alive).length);
     set("hud-best-fitness",  Math.round(ga.stats?.bestFitness || 0));
     set("hud-best-distance", ga.stats?.bestDistance || 0);
-    set("hud-track",         "Pista " + (track.index + 1));
+    set("hud-track",         trackNames[track.index] || ("Pista " + (track.index + 1)));
     set("hud-completors",    (ga.stats?.completorsThisGen || 0) + " completaram");
     updateStorageStatus();
   }
@@ -97,6 +99,22 @@
   function simulationStep() {
     if (!running) return;
 
+    const melhorCarro = ga.getBestCar();
+
+    // ── Velocímetro HUD ──
+    const currentSpeed = (melhorCarro && melhorCarro.alive) ? melhorCarro.speed : 0;
+    const speedKmH = Math.round(currentSpeed * 35); // escala para km/h (máx speed 6.5 -> ~228 km/h)
+    
+    const speedValEl = document.getElementById("speed-value");
+    if (speedValEl) speedValEl.innerText = speedKmH;
+
+    const needleEl = document.getElementById("dial-needle");
+    if (needleEl) {
+      // Rotaciona a agulha de -135deg (0 km/h) até +135deg (230 km/h)
+      const deg = -135 + (Math.min(230, speedKmH) / 230) * 270;
+      needleEl.style.transform = `rotate(${deg}deg)`;
+    }
+
     if (!paused) {
       const steps = turboMode ? 20 : Math.max(1, Math.floor(simSpeed));
 
@@ -109,28 +127,78 @@
           car.update(track);
           if (car.alive) anyAlive = true;
 
-          // Detecta conclusão: car.update() seta car.completed = true e car.alive = false
+          // Detecta conclusão
           if (car.completed) {
             car.computeFitness(track);
             storage.saveChampion(car, track.index, ga.generation);
             historicoGeracoes["pista" + track.index] = ga.generation;
-            showToast(`🏆 PISTA ${track.index + 1} CONCLUÍDA! Gen ${ga.generation} — Salvo.`);
-            paused = true;
+            showToast(`🏆 ${trackNames[track.index].toUpperCase()} COMPLETADA! Gen ${ga.generation} — Salvo.`);
             updateStorageStatus();
-            if (storage.isProjectComplete()) exibirPopUpResumo();
-            return;
+            if (storage.isProjectComplete()) {
+              // Não trava a simulação caso queiram ver outros sobreviventes, mas indica sucesso
+              document.body.classList.add("project-complete");
+            }
           }
         });
 
-        // Qualquer carro ainda vivo → continua
+        // Qualquer carro ainda vivo → continua o step físico
         if (anyAlive) break;
 
         // Toda a população morreu (ou completou): evolui
         const carrosVivos = ga.population.filter(c => c.alive).length;
         if (carrosVivos === 0) {
-          const stats = ga.evolve(track);
+          const autoProg = document.getElementById("chk-auto-progression")?.checked;
+          
+          let nextTrackIndex = track.index;
+          let mustSwitchTrack = false;
+          let championshipFinished = false;
+
+          // Se for modo Campeonato Automático
+          if (autoProg) {
+            if (ga.generation === 6) {
+              nextTrackIndex = 1;
+              mustSwitchTrack = true;
+            } else if (ga.generation === 12) {
+              nextTrackIndex = 2;
+              mustSwitchTrack = true;
+            } else if (ga.generation === 18) {
+              championshipFinished = true;
+            }
+          }
+
+          if (championshipFinished) {
+            // Campeonato Concluído
+            paused = true;
+            historicoGeracoes["pista" + track.index] = ga.generation;
+            updateStorageStatus();
+            exibirPopUpResumo();
+            showToast("🏁 FIM DO CAMPEONATO! 18 gerações concluídas.");
+            break;
+          }
+
+          let stats;
+          if (mustSwitchTrack) {
+            const nextTrack = new Track(nextTrackIndex);
+            
+            // Grava histórico da pista anterior
+            historicoGeracoes["pista" + track.index] = ga.generation;
+            
+            // Evolve transferindo a população para o novo track
+            stats = ga.evolve(track, nextTrack);
+            track = nextTrack;
+            
+            // Atualiza botões visuais da pista ativa no menu lateral
+            document.querySelectorAll("[data-track]").forEach(b => {
+              b.classList.toggle("active", parseInt(b.dataset.track, 10) === nextTrackIndex);
+            });
+            
+            showToast(`🚀 Avançando para ${trackNames[nextTrackIndex]} (Pista ${nextTrackIndex+1})!`);
+          } else {
+            stats = ga.evolve(track, track);
+          }
+
           updateCharts(
-            ga.generation,
+            ga.generation - 1, // mostra estatísticas da geração anterior recém-concluída
             Math.round(stats.bestFitness),
             Math.round(stats.avgFitness),
             stats.completorsThisGen || 0
@@ -139,7 +207,7 @@
           // Salva o melhor não-completador apenas para histórico de UI
           const best = ga.getBestCar();
           if (best && !best.completed) {
-            storage.saveChampion(best, track.index, ga.generation);
+            storage.saveChampion(best, track.index, ga.generation - 1);
           }
           break;
         }
@@ -149,7 +217,6 @@
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const melhorCarro = ga.getBestCar();
     visualizer.render(track, ga.population, melhorCarro, {
       paused, turboMode, showSensors: true,
     });
@@ -206,6 +273,23 @@
     document.getElementById("btn-pause")?.addEventListener("click", () => {
       paused = true; showToast("Pausado.");
     });
+    document.getElementById("btn-stop")?.addEventListener("click", () => {
+      paused = true;
+      ga.generation = 1;
+      
+      const autoProg = document.getElementById("chk-auto-progression")?.checked;
+      if (autoProg) {
+        // Se estiver no campeonato automático, resetamos de volta para Mônaco (Track 0)
+        track.setTrack(0);
+        track.resetCheckpoints();
+        document.querySelectorAll("[data-track]").forEach(b => {
+          b.classList.toggle("active", parseInt(b.dataset.track, 10) === 0);
+        });
+      }
+      
+      resetSimulation();
+      showToast("Simulação parada e reiniciada.");
+    });
     document.getElementById("btn-reset")?.addEventListener("click", () => {
       ga.generation = 1;
       resetSimulation();
@@ -216,12 +300,23 @@
       if (m) m.style.display = "none";
     });
 
-    // Turbo
-    const turboBtn = document.getElementById("btn-turbo");
-    turboBtn?.addEventListener("click", () => {
-      turboMode = !turboMode;
-      turboBtn.classList.toggle("active", turboMode);
-      showToast(turboMode ? "Turbo ON (20×)" : "Turbo OFF");
+    // Speed Controls Button Group (1x, 2x, 3x, 5x, 10x, Turbo)
+    document.querySelectorAll(".speed-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".speed-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        
+        const speedVal = btn.dataset.speed;
+        if (speedVal === "turbo") {
+          turboMode = true;
+          simSpeed = 1;
+          showToast("Velocidade Turbo (20x)!");
+        } else {
+          turboMode = false;
+          simSpeed = parseInt(speedVal, 10);
+          showToast(`Velocidade Física: ${simSpeed}x`);
+        }
+      });
     });
 
     // Export JSON
@@ -274,12 +369,6 @@
     });
 
     // Sliders
-    const speedSlider = document.getElementById("slider-speed");
-    speedSlider?.addEventListener("input", () => {
-      simSpeed = parseFloat(speedSlider.value);
-      const l = document.getElementById("label-speed");
-      if (l) l.innerText = simSpeed.toFixed(1) + "x";
-    });
     const mutSlider = document.getElementById("slider-mutation");
     mutSlider?.addEventListener("input", () => {
       ga.setRates(parseFloat(mutSlider.value), null);
@@ -305,6 +394,10 @@
         document.querySelectorAll("[data-track]").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
 
+        // Desativa a progressão automática se o usuário selecionar manualmente uma pista
+        const autoProgEl = document.getElementById("chk-auto-progression");
+        if (autoProgEl) autoProgEl.checked = false;
+
         const idx = parseInt(btn.dataset.track, 10);
         track.setTrack(idx);
         track.resetCheckpoints();
@@ -314,7 +407,7 @@
         ga.generation = 1;
         ga.createInitialPopulation(track, seeds.length ? seeds : null, ghost);
 
-        showToast(`Pista ${idx + 1} — ${seeds.length} cérebro(s) completador(es) como semente`);
+        showToast(`Pista ${trackNames[idx]} — ${seeds.length} cérebro(s) como semente`);
         updateHUD();
       });
     });

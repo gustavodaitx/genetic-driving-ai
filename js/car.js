@@ -39,7 +39,7 @@
       this.ultimoCheckpointDefinido = 0;
 
       this.sensorRange = 360;
-      this.sensors     = [0, 0, 0, 0, 0, 0, 0, 0];
+      this.sensors     = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skidMarks   = [];
     }
 
@@ -153,7 +153,7 @@
     }
 
     castSensors(track) {
-      const angles = [0, Math.PI/6, -Math.PI/6, Math.PI/3, -Math.PI/3, Math.PI/2, -Math.PI/2, Math.PI];
+      const angles = [-Math.PI/2, -Math.PI/3, -Math.PI/6, -Math.PI/12, 0, Math.PI/12, Math.PI/6, Math.PI/3, Math.PI/2];
       for (let i = 0; i < angles.length; i++) {
         const rayAngle = this.angle + angles[i];
         let step       = 0;

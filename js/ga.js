@@ -33,16 +33,19 @@
 
     // ── Taxa de mutação adaptativa ─────────────────────────────────────────
     getAdaptiveMutationRate(trackIndex = 0) {
-      const g = this.generation;
-      if (trackIndex === 2) {
-        if (g <= 50)  return 0.18;
-        if (g <= 120) return 0.08;
-        return 0.03;
-      }
-      if (g <= 40)  return 0.12;
-      if (g <= 100) return 0.05;
-      if (g <= 180) return 0.02;
-      return 0.005;
+      // Determina a geração relativa dentro da pista (bloco de 6 gerações)
+      // Se a geração passar de 18, fazemos mod 6 para continuar o ciclo caso necessário.
+      const trackGen = ((this.generation - 1) % 6) + 1;
+      
+      // Ajuste de balanceamento fino para transferência de aprendizado:
+      // Na primeira geração da nova pista, aumentamos a taxa para explorar o traçado novo.
+      // Nas seguintes, reduzimos progressivamente para convergir e maximizar os sobreviventes.
+      if (trackGen === 1) return 0.14;
+      if (trackGen === 2) return 0.08;
+      if (trackGen === 3) return 0.045;
+      if (trackGen === 4) return 0.022;
+      if (trackGen === 5) return 0.010;
+      return 0.004;
     }
 
     // ── Criação da população inicial ───────────────────────────────────────
@@ -95,8 +98,8 @@
     }
 
     // ── Evolução ──────────────────────────────────────────────────────────
-    evolve(track) {
-      // 1. Calcula fitness de todos
+    evolve(track, nextTrack = track) {
+      // 1. Calcula fitness de todos no track atual (onde eles correram)
       this.population.forEach(car => car.computeFitness(track));
 
       // 2. Separa completadores de não-completadores
@@ -118,33 +121,33 @@
       this.stats.avgFitness = this.population.reduce((s, c) => s + c.fitness, 0) / this.populationSize;
 
       const children = [];
-      const mutRate  = this.getAdaptiveMutationRate(track.index);
+      const mutRate  = this.getAdaptiveMutationRate(nextTrack.index);
 
-      // 5. Clone puro do melhor absoluto (sem mutação)
+      // 5. Clone puro do melhor absoluto (sem mutação), nascido na próxima pista
       if (elitePool[0]) {
-        children.push(new Car(elitePool[0].brain.clone(), track, {
+        children.push(new Car(elitePool[0].brain.clone(), nextTrack, {
           generation: this.generation + 1,
           ghostPath:  this.ghostPath,
         }));
       }
 
-      // 6. Clones de elite (mutação mínima, isElite=true)
+      // 6. Clones de elite (mutação mínima, isElite=true), nascidos na próxima pista
       for (let i = 1; i < this.eliteClones && i < elitePool.length; i++) {
         const b = elitePool[i].brain.clone();
         b.mutate(mutRate, this.mutationStrength, true);
-        children.push(new Car(b, track, {
+        children.push(new Car(b, nextTrack, {
           generation: this.generation + 1,
           ghostPath:  this.ghostPath,
         }));
       }
 
-      // 7. Filhos via crossover a partir do pool completo
+      // 7. Filhos via crossover a partir do pool completo, nascidos na próxima pista
       while (children.length < this.populationSize) {
         const pa = this.tournamentSelect(elitePool);
         const pb = this.tournamentSelect(elitePool);
         const childBrain = NeuralNetwork.crossover(pa.brain, pb.brain, this.crossoverRate);
         childBrain.mutate(mutRate, this.mutationStrength, false);
-        children.push(new Car(childBrain, track, {
+        children.push(new Car(childBrain, nextTrack, {
           generation: this.generation + 1,
           ghostPath:  this.ghostPath,
         }));
@@ -152,7 +155,7 @@
 
       this.generation++;
       this.population = children;
-      track.resetCheckpoints();
+      nextTrack.resetCheckpoints();
       return this.stats;
     }
 

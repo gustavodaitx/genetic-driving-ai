@@ -208,13 +208,37 @@ input[type="range"] {
 }
 
 .sensor-mini {
-  height: 84px;
+  height: auto;
   background: #0a0e12;
   border-radius: 6px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px;
+}
+
+.sensor-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  font-size: 0.65rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 5px 3px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+.sensor-row span {
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 600;
+}
+
+.sensor-row strong {
+  font-size: 0.82rem;
+  color: var(--text);
+  margin-top: 2px;
 }
 
 #toast {
@@ -266,6 +290,15 @@ body.project-complete .sidebar-header h1::after {
 }
 .btn.danger:hover { background: #991b1b; }
 
+.btn.success {
+  background: rgba(0, 255, 170, 0.1);
+  color: var(--success);
+  border-color: var(--success);
+}
+.btn.success:hover {
+  background: rgba(0, 255, 170, 0.2);
+}
+
 .storage-status {
   background: #0d1117;
   border: 1px solid #30363d;
@@ -290,3 +323,142 @@ body.project-complete .sidebar-header h1::after {
   margin: 4px 0 0;
 }
 .storage-hint strong { color: #58a6ff; }
+
+/* ── ESTILOS CUSTOMIZADOS ADICIONADOS ── */
+
+/* Barra de Ferramentas Flutuante com Glassmorphism */
+.sim-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: rgba(10, 14, 20, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.sim-toolbar .divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* Grupo de Controle de Velocidade */
+.speed-control-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.speed-label {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 6px;
+  font-weight: bold;
+}
+
+.speed-btn {
+  padding: 5px 8px;
+  min-width: 36px;
+  font-size: 0.68rem;
+}
+
+.speed-btn.active {
+  background: rgba(0, 255, 170, 0.15) !important;
+  border-color: var(--success) !important;
+  color: var(--success) !important;
+  font-weight: bold;
+  box-shadow: 0 0 8px rgba(0, 255, 170, 0.3);
+}
+
+/* Velocímetro Premium no canto inferior direito */
+.speedometer-widget {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 120px;
+  background: rgba(18, 24, 32, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 90;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+  pointer-events: none; /* Não atrapalha cliques no canvas se necessário */
+  border-top-color: rgba(0, 255, 170, 0.4);
+}
+
+.speed-dial {
+  width: 90px;
+  height: 60px;
+  position: relative;
+  overflow: hidden;
+}
+
+.speed-dial-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.dial-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.dial-needle {
+  transform-origin: 50px 50px;
+  transition: transform 0.1s ease-out;
+  transform: rotate(-135deg); /* Inicial em 0 */
+  stroke: #ff8844;
+  filter: drop-shadow(0 0 2px #ff8844);
+}
+
+.speed-digital {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin-top: -12px;
+}
+
+#speed-value {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--success);
+  text-shadow: 0 0 10px rgba(0, 255, 170, 0.6);
+}
+
+.speed-unit {
+  font-size: 0.6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+/* Modo Campeonato toggle wrap style */
+.auto-progression-wrap {
+  border-radius: 4px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+

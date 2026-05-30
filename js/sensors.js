@@ -4,12 +4,15 @@
  */
 (function (global) {
   const SENSOR_ANGLES = [
-    { id: "front",      angle: 0 },
-    { id: "frontLeft",  angle: -Math.PI / 6 },
-    { id: "frontRight", angle:  Math.PI / 6 },
     { id: "left",       angle: -Math.PI / 2 },
+    { id: "frontLeft2", angle: -Math.PI / 3 },
+    { id: "frontLeft1", angle: -Math.PI / 6 },
+    { id: "frontLeft0", angle: -Math.PI / 12 },
+    { id: "front",      angle: 0 },
+    { id: "frontRight0",angle:  Math.PI / 12 },
+    { id: "frontRight1",angle:  Math.PI / 6 },
+    { id: "frontRight2",angle:  Math.PI / 3 },
     { id: "right",      angle:  Math.PI / 2 },
-    { id: "rear",       angle:  Math.PI },
   ];
 
   const MAX_RANGE = 360; // aumentado de 220 para 360

@@ -293,15 +293,15 @@
     }
 
     drawCarSensors(car) {
-    const ctx = this.ctx;
-    if (!car.sensors) return;
+      const ctx = this.ctx;
+      if (!car.sensors) return;
   
-     ctx.save();
-      // Use exatamente os mesmos ângulos do seu car.js para sincronizar
-      const angles = [0, Math.PI/6, -Math.PI/6, Math.PI/3, -Math.PI/3, Math.PI/2, -Math.PI/2, Math.PI];
+      ctx.save();
+      // Use exatamente os mesmos ângulos do seu car.js para sincronizar (9 sensores)
+      const angles = [-Math.PI/2, -Math.PI/3, -Math.PI/6, -Math.PI/12, 0, Math.PI/12, Math.PI/6, Math.PI/3, Math.PI/2];
   
       angles.forEach((ang, idx) => {
-         const totalAngle = car.angle + ang;
+        const totalAngle = car.angle + ang;
         const readingsNormalizada = car.sensors[idx] !== undefined ? car.sensors[idx] : 0;
         
         const realDist = 360 * (1 - readingsNormalizada); 
@@ -330,10 +330,10 @@
     }
 
     /**
-     * Atualiza os elementos de texto no Dashboard lateral (HTML)
+     * Atualiza os elementos de texto no Dashboard lateral (HTML) (9 sensores)
      */
     drawSensorPanel(car) {
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 9; i++) {
         const sensorLabel = document.getElementById(`sensor-val-${i}`);
         if (sensorLabel && car.sensors) {
           const leitura = car.sensors[i] !== undefined ? car.sensors[i] : 0;
