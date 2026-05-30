@@ -1,0 +1,259 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0a0e14;
+  --panel: #121820;
+  --border: #1e2a3a;
+  --text: #c8d4e0;
+  --muted: #6a7a8a;
+  --accent: #4a9eff;
+  --gold: #ffd700;
+  --success: #00ffaa;
+  --warn: #ff8844;
+  --sidebar-w: 320px;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+.sim-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#sim-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #0d1117;
+}
+
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  padding: 12px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-header h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
+
+.subtitle {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.panel {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.panel h2 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.hud-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+
+.hud-item {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.hud-item strong {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.hud-item strong.small {
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.track-status {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.track-badge {
+  font-size: 0.65rem;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: var(--border);
+  color: var(--muted);
+}
+
+.track-badge.done {
+  background: rgba(0, 255, 170, 0.2);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.btn {
+  flex: 1;
+  min-width: 70px;
+  padding: 7px 10px;
+  font-size: 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #1a2430;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn:hover {
+  background: #243040;
+  border-color: var(--accent);
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #2a5a9a, #1a3a6a);
+  border-color: var(--accent);
+}
+
+.btn.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.btn.ghost {
+  background: transparent;
+  font-size: 0.65rem;
+}
+
+.btn.active {
+  background: rgba(255, 215, 0, 0.2);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.track-select {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.track-btn {
+  flex: 1;
+  font-size: 0.65rem;
+}
+
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin: 8px 0 4px;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.chart-panel .chart-wrap {
+  height: 110px;
+  position: relative;
+}
+
+.sensor-mini {
+  height: 84px;
+  background: #0a0e12;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#toast {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0, 40, 30, 0.92);
+  border: 1px solid var(--success);
+  color: var(--success);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 10;
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+body.project-complete .sidebar-header h1::after {
+  content: " ✓";
+  color: var(--success);
+}
+
+@media (max-width: 900px) {
+  #app {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 40vh;
+  }
+  .sim-area {
+    height: 60vh;
+  }
+}
