@@ -28,6 +28,12 @@
   const charts = { fitness: null, distance: null };
   const historicoGeracoes = { pista0: "N/A", pista1: "N/A", pista2: "N/A" };
 
+  // Rastreia sobreviventes (completadores) acumulados por pista ao longo de todo o campeonato
+  // Cada entrada: { gen: N, completors: N } — histórico de TODAS as gerações
+  const sobreviventesPorPista = { 0: [], 1: [], 2: [] };
+  // Acumulado de completadores por pista (soma total do ciclo de 6 gens)
+  const completadoresCiclo    = { 0: 0, 1: 0, 2: 0 };
+
   // ── Charts ───────────────────────────────────────────────────────────────
   function initCharts() {
     const fitCtx  = document.getElementById("chart-fitness");
@@ -167,11 +173,21 @@
           }
 
           if (championshipFinished) {
-            // Campeonato Concluído
+            // Campeonato Concluído — registra última geração antes de pausar
+            ga.population.forEach(car => car.computeFitness(track));
+            const compFinal = ga.population.filter(c => c.completed).length;
+            completadoresCiclo[track.index] = (completadoresCiclo[track.index] || 0) + compFinal;
+            sobreviventesPorPista[track.index].push({ gen: ga.generation, completors: compFinal });
+
             paused = true;
             historicoGeracoes["pista" + track.index] = ga.generation;
             updateStorageStatus();
-            exibirPopUpResumo();
+            // Mostra ciclo 3 (fim de Interlagos) antes do resumo final
+            setTimeout(() => {
+              exibirPopUpCiclo(3, () => {
+                setTimeout(exibirPopUpResumo, 300);
+              });
+            }, 80);
             showToast("🏁 FIM DO CAMPEONATO! 18 gerações concluídas.");
             break;
           }
@@ -185,6 +201,10 @@
             
             // Evolve transferindo a população para o novo track
             stats = ga.evolve(track, nextTrack);
+            // Registra sobreviventes da última geração desta pista (antes da troca)
+            const compTroca = stats.completorsThisGen || 0;
+            completadoresCiclo[track.index] = (completadoresCiclo[track.index] || 0) + compTroca;
+            sobreviventesPorPista[track.index].push({ gen: ga.generation - 1, completors: compTroca });
             track = nextTrack;
             
             // Atualiza botões visuais da pista ativa no menu lateral
@@ -193,8 +213,14 @@
             });
             
             showToast(`🚀 Avançando para ${trackNames[nextTrackIndex]} (Pista ${nextTrackIndex+1})!`);
+            // Pop-up de fim de ciclo: mostra evolução de sobreviventes por pista
+            setTimeout(() => exibirPopUpCiclo(nextTrackIndex), 80);
           } else {
             stats = ga.evolve(track, track);
+            // Registra sobreviventes de cada geração normal (mesma pista)
+            const compGen = stats.completorsThisGen || 0;
+            completadoresCiclo[track.index] = (completadoresCiclo[track.index] || 0) + compGen;
+            sobreviventesPorPista[track.index].push({ gen: ga.generation - 1, completors: compGen });
           }
 
           updateCharts(
@@ -203,6 +229,7 @@
             Math.round(stats.avgFitness),
             stats.completorsThisGen || 0
           );
+
 
           // Salva o melhor não-completador apenas para histórico de UI
           const best = ga.getBestCar();
@@ -223,6 +250,111 @@
 
     updateHUD();
     requestAnimationFrame(simulationStep);
+  }
+
+
+  // ── Modal de fim de ciclo (a cada 6 gerações) ──────────────────────────
+  function exibirPopUpCiclo(cicloIdx, onClose) {
+    const modal = document.getElementById("modal-ciclo");
+    if (!modal) return;
+
+    const cicloNomes  = ["", "Mônaco", "Monza", "Interlagos"];
+    const proximaNomes= ["", "Monza", "Interlagos", "Fim do Campeonato"];
+    const icones      = ["", "🏎️", "⚡", "🏆"];
+
+    const pistaNome = cicloNomes[cicloIdx]   || ("Pista " + cicloIdx);
+    const proxNome  = proximaNomes[cicloIdx] || "";
+    const icone     = icones[cicloIdx]       || "🏁";
+    const genInicio = (cicloIdx - 1) * 6 + 1;
+    const genFim    = cicloIdx * 6;
+
+    const el = id => document.getElementById(id);
+    if (el("mciclo-titulo"))   el("mciclo-titulo").textContent   = `Ciclo ${cicloIdx} Concluído!`;
+    if (el("mciclo-subtitulo"))el("mciclo-subtitulo").textContent = `Gen. ${genInicio}–${genFim} — ${pistaNome}`;
+    if (el("mciclo-icon"))     el("mciclo-icon").textContent     = icone;
+
+    // Barras de sobreviventes
+    const container = el("mciclo-pistas");
+    if (container) {
+      container.innerHTML = "";
+      const pistaLabels = ["Mônaco", "Monza", "Interlagos"];
+      const maxComp = Math.max(1, ...pistaLabels.map((_, i) => completadoresCiclo[i] || 0));
+
+      pistaLabels.forEach((nome, idx) => {
+        const total       = completadoresCiclo[idx] || 0;
+        const isAtiva     = idx === cicloIdx - 1;
+        const isAnterior  = idx  <  cicloIdx - 1;
+        const isFutura    = idx  >  cicloIdx - 1;
+
+        const pct         = isFutura ? 0 : Math.round((total / maxComp) * 100);
+        const barClass    = isAtiva ? "mciclo-barra-ativa" : isAnterior ? "mciclo-barra-anterior" : "mciclo-barra-inativa";
+        const numClass    = isAtiva ? "ativa"               : isAnterior ? "anterior"              : "inativa";
+        const numText     = isFutura ? "—" : total;
+
+        const row = document.createElement("div");
+        row.className = "mciclo-pista-row";
+        row.innerHTML = `
+          <span class="mciclo-pista-nome">${nome}</span>
+          <div class="mciclo-barra-wrap ${barClass}">
+            <div class="mciclo-barra-fill" style="width:0%" data-pct="${pct}"></div>
+          </div>
+          <span class="mciclo-pista-num ${numClass}">${numText}</span>`;
+        container.appendChild(row);
+      });
+
+      // Anima barras com pequeno delay para CSS transition funcionar
+      requestAnimationFrame(() => {
+        container.querySelectorAll(".mciclo-barra-fill").forEach(bar => {
+          setTimeout(() => { bar.style.width = bar.dataset.pct + "%"; }, 80);
+        });
+      });
+    }
+
+    // Insight sobre evolução
+    const insightEl = el("mciclo-insight");
+    if (insightEl) {
+      const hist         = sobreviventesPorPista[cicloIdx - 1] || [];
+      const totalAtual   = completadoresCiclo[cicloIdx - 1] || 0;
+      const totalGeral   = Object.values(completadoresCiclo).reduce((a, b) => a + b, 0);
+      let insight = "";
+
+      if (hist.length >= 2) {
+        const primeiro = hist[0].completors;
+        const ultimo   = hist[hist.length - 1].completors;
+        const ganho    = ultimo - primeiro;
+        if (ganho > 0) {
+          insight = `<strong>+${ganho}</strong> sobreviventes a mais na última geração frente à primeira — evolução real! 🧬`;
+        } else if (totalAtual > 0) {
+          insight = `<strong>${totalAtual}</strong> sobreviventes acumulados em ${pistaNome}. Genes transferidos à próxima pista.`;
+        } else {
+          insight = `Nenhum completador ainda em ${pistaNome} — mas o aprendizado foi transferido. 🔬`;
+        }
+      } else if (totalAtual > 0) {
+        insight = `<strong>${totalAtual}</strong> sobreviventes completaram ${pistaNome}! Herança genética ativada. 🧬`;
+      } else {
+        insight = cicloIdx < 3
+          ? `Partindo para <strong>${proxNome}</strong> com os genes aprendidos em ${pistaNome}.`
+          : `Campeonato encerrado! <strong>${totalGeral}</strong> sobreviventes totais acumulados.`;
+      }
+      insightEl.innerHTML = insight;
+    }
+
+    // Botão continuar
+    const btnCont = el("btn-ciclo-continuar");
+    if (btnCont) {
+      btnCont.textContent = cicloIdx < 3 ? `Ir para ${proxNome} ▶` : "Ver Resumo ▶";
+      btnCont.onclick = () => {
+        modal.style.display = "none";
+        if (typeof onClose === "function") {
+          onClose();
+        } else {
+          paused = false;
+        }
+      };
+    }
+
+    paused = true;
+    modal.style.display = "flex";
   }
 
   // ── Modal de resumo ───────────────────────────────────────────────────────
@@ -324,6 +456,24 @@
     document.getElementById("btn-fechar-modal")?.addEventListener("click", () => {
       const m = document.getElementById("modal-resumo");
       if (m) m.style.display = "none";
+      // Reinicia o campeonato do zero (volta para Mônaco)
+      ga.generation = 1;
+      track = new Track(0);
+      completadoresCiclo[0] = 0;
+      completadoresCiclo[1] = 0;
+      completadoresCiclo[2] = 0;
+      sobreviventesPorPista[0] = [];
+      sobreviventesPorPista[1] = [];
+      sobreviventesPorPista[2] = [];
+      historicoGeracoes.pista0 = "N/A";
+      historicoGeracoes.pista1 = "N/A";
+      historicoGeracoes.pista2 = "N/A";
+      document.querySelectorAll("[data-track]").forEach(b => {
+        b.classList.toggle("active", parseInt(b.dataset.track, 10) === 0);
+      });
+      resetSimulation();
+      paused = false;
+      showToast("🔄 Novo campeonato iniciado! Começando em Mônaco.");
     });
 
     // Speed Controls Button Group (1x, 2x, 3x, 5x, 10x, Turbo)

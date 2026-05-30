@@ -196,5 +196,23 @@
     </div>
   </div>
 
+  <!-- Modal de fim de ciclo (a cada 6 geracoes) -->
+  <div id="modal-ciclo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+       background:rgba(0,0,0,0.78); z-index:9999; justify-content:center; align-items:center;">
+    <div id="modal-ciclo-inner" class="modal-ciclo-box">
+      <div class="mciclo-header">
+        <span id="mciclo-icon">&#127937;</span>
+        <h2 id="mciclo-titulo">Ciclo 1 Conclu&#237;do</h2>
+        <p id="mciclo-subtitulo">Ger. 1&#8211;6 &mdash; M&#244;naco</p>
+      </div>
+      <p class="mciclo-desc">Sobreviventes acumulados por pista ao longo do campeonato:</p>
+      <div id="mciclo-pistas" class="mciclo-pistas"></div>
+      <div class="mciclo-footer">
+        <p id="mciclo-insight" class="mciclo-insight"></p>
+        <button id="btn-ciclo-continuar" class="mciclo-btn-continuar">Continuar &#9654;</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

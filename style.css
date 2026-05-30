@@ -462,3 +462,162 @@ body.project-complete .sidebar-header h1::after {
   border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
+
+/* ─── Modal de fim de ciclo ─────────────────────────────────────────────── */
+.modal-ciclo-box {
+  background: #0d1117;
+  border: 2px solid #ffd700;
+  border-radius: 16px;
+  max-width: 480px;
+  width: 92%;
+  padding: 28px 28px 22px;
+  box-shadow: 0 0 40px rgba(255, 215, 0, 0.18), 0 8px 32px rgba(0,0,0,0.7);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  animation: cicloEntrada 0.35s cubic-bezier(.22,1,.36,1);
+  color: #e8eaf0;
+}
+
+@keyframes cicloEntrada {
+  from { opacity: 0; transform: scale(0.88) translateY(24px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+
+.mciclo-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.mciclo-header span {
+  font-size: 2.4rem;
+  display: block;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 0 10px rgba(255,215,0,0.6));
+}
+
+.mciclo-header h2 {
+  margin: 0 0 4px;
+  font-size: 1.45rem;
+  color: #ffd700;
+  letter-spacing: 0.02em;
+}
+
+.mciclo-header p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #8899aa;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.mciclo-desc {
+  font-size: 0.78rem;
+  color: #8899aa;
+  margin: 0 0 14px;
+  text-align: center;
+}
+
+.mciclo-pistas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.mciclo-pista-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.mciclo-pista-nome {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ccd6f0;
+  white-space: nowrap;
+}
+
+.mciclo-barra-wrap {
+  background: #1c2333;
+  border-radius: 6px;
+  height: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mciclo-barra-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.9s cubic-bezier(.22,1,.36,1);
+  position: relative;
+}
+
+.mciclo-barra-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, transparent 60%, rgba(255,255,255,0.18));
+  border-radius: 6px;
+}
+
+.mciclo-barra-inativa .mciclo-barra-fill {
+  background: linear-gradient(90deg, #2a3a50, #3a4a60);
+  opacity: 0.5;
+}
+
+.mciclo-barra-ativa .mciclo-barra-fill {
+  background: linear-gradient(90deg, #00c878, #00ffaa);
+  box-shadow: 0 0 8px rgba(0,255,170,0.4);
+}
+
+.mciclo-barra-anterior .mciclo-barra-fill {
+  background: linear-gradient(90deg, #1a6a9a, #4a9eff);
+}
+
+.mciclo-pista-num {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.mciclo-pista-num.ativa  { color: #00ffaa; }
+.mciclo-pista-num.anterior { color: #4a9eff; }
+.mciclo-pista-num.inativa  { color: #445566; }
+
+.mciclo-footer {
+  border-top: 1px solid #1e2d3d;
+  padding-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mciclo-insight {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #8899aa;
+  flex: 1;
+  line-height: 1.5;
+}
+
+.mciclo-insight strong { color: #ffd700; }
+
+.mciclo-btn-continuar {
+  background: linear-gradient(135deg, #ffd700, #e6a800);
+  color: #000;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.mciclo-btn-continuar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255,215,0,0.4);
+}
