@@ -11,13 +11,18 @@
   <div id="app">
     <main class="sim-area">
       <div class="sim-toolbar">
-        <button id="btn-start" class="btn success">Iniciar</button>
-        <button id="btn-pause" class="btn">Pausar</button>
-        <button id="btn-reset" class="btn warn">Resetar</button>
-        <button id="btn-turbo" class="btn toggle">Velocidade Turbo</button>
+        <button id="btn-start"  class="btn success">Iniciar</button>
+        <button id="btn-pause"  class="btn">Pausar</button>
+        <button id="btn-reset"  class="btn warn">Resetar</button>
+        <button id="btn-turbo"  class="btn toggle">Velocidade Turbo</button>
         <div class="divider"></div>
-        <button id="btn-save" class="btn ghost">Salvar Campeão</button>
-        <button id="btn-load" class="btn ghost">Carregar Campeão</button>
+        <!-- Legado (clipboard) -->
+        <button id="btn-save"   class="btn ghost">Copiar Campeão</button>
+        <button id="btn-load"   class="btn ghost">Colar Campeão</button>
+        <!-- Novos botões de arquivo JSON -->
+        <button id="btn-export-json" class="btn success" title="Baixa um arquivo .json com todos os campeões salvos">⬇ Exportar JSON</button>
+        <button id="btn-import-json" class="btn"         title="Carrega um arquivo .json exportado anteriormente">⬆ Importar JSON</button>
+        <button id="btn-clear-storage" class="btn danger" title="Apaga todos os dados salvos">🗑 Limpar Dados</button>
       </div>
 
       <canvas id="sim-canvas"></canvas>
@@ -26,7 +31,7 @@
 
     <aside class="sidebar">
       <header class="sidebar-header">
-        <h1>IA Genética v2</h1>
+        <h1>IA Genética v3</h1>
         <p class="subtitle">Evolução de Redes Neuronais em tempo real</p>
       </header>
 
@@ -34,19 +39,47 @@
         <h2>Selecionar Pista</h2>
         <div class="track-select">
           <button class="btn track-btn active" data-track="0">Pista 1</button>
-          <button class="btn track-btn" data-track="1">Pista 2</button>
-          <button class="btn track-btn" data-track="2">Pista 3</button>
+          <button class="btn track-btn"        data-track="1">Pista 2</button>
+          <button class="btn track-btn"        data-track="2">Pista 3</button>
         </div>
+      </section>
+
+      <!-- NOVO: Painel de status da persistência multi-pista -->
+      <section class="panel">
+        <h2>💾 Campeões Salvos</h2>
+        <div class="storage-status">
+          <div class="storage-row">
+            <span>Pista 1:</span>
+            <strong id="storage-track0" style="color:#aaa">0 campeão(ões)</strong>
+          </div>
+          <div class="storage-row">
+            <span>Pista 2:</span>
+            <strong id="storage-track1" style="color:#aaa">0 campeão(ões)</strong>
+          </div>
+          <div class="storage-row">
+            <span>Pista 3:</span>
+            <strong id="storage-track2" style="color:#aaa">0 campeão(ões)</strong>
+          </div>
+          <div class="storage-row" style="margin-top:6px; border-top:1px solid #333; padding-top:6px;">
+            <span>🌟 Universais:</span>
+            <strong id="storage-universal" style="color:#aaa">0 universal(is)</strong>
+          </div>
+        </div>
+        <p class="storage-hint">
+          Ao trocar de pista, os melhores cérebros de <em>todas</em> as pistas são usados como semente.
+          Use <strong>Exportar JSON</strong> para salvar o progresso em arquivo.
+        </p>
       </section>
 
       <section class="panel">
         <h2>Dashboard / HUD</h2>
         <div class="hud-grid">
-          <div class="hud-item"><span>Geração</span><strong id="hud-generation">1</strong></div>
-          <div class="hud-item"><span>Carros Vivos</span><strong id="hud-alive">0</strong></div>
-          <div class="hud-item"><span>Melhor Fitness</span><strong id="hud-best-fitness">0</strong></div>
-          <div class="hud-item"><span>Melhor Distância</span><strong id="hud-best-distance">0</strong></div>
-          <div class="hud-item"><span>Pista Atual</span><strong id="hud-track" class="small">—</strong></div>
+          <div class="hud-item"><span>Geração</span>        <strong id="hud-generation">1</strong></div>
+          <div class="hud-item"><span>Carros Vivos</span>   <strong id="hud-alive">0</strong></div>
+          <div class="hud-item"><span>Melhor Fitness</span> <strong id="hud-best-fitness">0</strong></div>
+          <div class="hud-item"><span>Melhor Checkpoint</span><strong id="hud-best-distance">0</strong></div>
+          <div class="hud-item"><span>Pista Atual</span>    <strong id="hud-track" class="small">—</strong></div>
+          <div class="hud-item"><span>Esta Geração</span>   <strong id="hud-completors" style="color:#00ffaa">0 completaram</strong></div>
         </div>
       </section>
 
@@ -54,13 +87,13 @@
         <h2>Configurações Genéticas</h2>
         <label class="slider-label">Velocidade Física <span id="label-speed">1.0x</span></label>
         <input type="range" id="slider-speed" min="0.5" max="5" step="0.1" value="1" />
-        
+
         <label class="slider-label">Taxa de Mutação <span id="label-mutation">0.030</span></label>
         <input type="range" id="slider-mutation" min="0.001" max="0.1" step="0.001" value="0.03" />
-        
+
         <label class="slider-label">Taxa de Crossover <span id="label-crossover">0.50</span></label>
         <input type="range" id="slider-crossover" min="0.1" max="0.99" step="0.01" value="0.5" />
-        
+
         <label class="slider-label">Tamanho da População</label>
         <input type="range" id="slider-population" min="50" max="300" step="10" value="200" />
       </section>
@@ -71,41 +104,22 @@
       </section>
 
       <section class="panel chart-panel">
-        <h2>Histórico de Distância</h2>
+        <h2>Completadores por Geração</h2>
         <div class="chart-wrap"><canvas id="chart-distance"></canvas></div>
       </section>
 
       <section class="panel">
         <h2>Visão do Sensor (Melhor Carro)</h2>
-        <section class="panel">
-  <h2>Visão do Sensor (Melhor Carro)</h2>
-  <div id="sensor-mini" class="sensor-mini">
-    <div class="sensor-row">
-      <span>S0 (Front):</span> <strong id="sensor-val-0">0%</strong>
-    </div>
-    <div class="sensor-row">
-      <span>S1 (F-Esq):</span> <strong id="sensor-val-1">0%</strong>
-    </div>
-    <div class="sensor-row">
-      <span>S2 (F-Dir):</span> <strong id="sensor-val-2">0%</strong>
-    </div>
-    <div class="sensor-row">
-      <span>S3 (L-Esq):</span> <strong id="sensor-val-3">0%</strong>
-    </div>
-    <div class="sensor-row">
-      <span>S4 (L-Dir):</span> <strong id="sensor-val-4">0%</strong>
-    </div>
-    <div class="sensor-row">
-      <span>S5 (T-Esq):</span> <strong id="sensor-val-5">0%</strong>
-    </div>
-    <div class="sensor-row">
-      <span>S6 (T-Dir):</span> <strong id="sensor-val-6">0%</strong>
-    </div>
-    <div class="sensor-row">
-      <span>S7 (Trás):</span> <strong id="sensor-val-7">0%</strong>
-    </div>
-  </div>
-</section>
+        <div id="sensor-mini" class="sensor-mini">
+          <div class="sensor-row"><span>S0 (Front):</span>  <strong id="sensor-val-0">0%</strong></div>
+          <div class="sensor-row"><span>S1 (F-Esq):</span>  <strong id="sensor-val-1">0%</strong></div>
+          <div class="sensor-row"><span>S2 (F-Dir):</span>  <strong id="sensor-val-2">0%</strong></div>
+          <div class="sensor-row"><span>S3 (L-Esq):</span>  <strong id="sensor-val-3">0%</strong></div>
+          <div class="sensor-row"><span>S4 (L-Dir):</span>  <strong id="sensor-val-4">0%</strong></div>
+          <div class="sensor-row"><span>S5 (T-Esq):</span>  <strong id="sensor-val-5">0%</strong></div>
+          <div class="sensor-row"><span>S6 (T-Dir):</span>  <strong id="sensor-val-6">0%</strong></div>
+          <div class="sensor-row"><span>S7 (Trás):</span>   <strong id="sensor-val-7">0%</strong></div>
+        </div>
       </section>
     </aside>
   </div>
@@ -119,22 +133,32 @@
   <script src="js/ga.js"></script>
   <script src="js/app.js"></script>
 
-  <div id="modal-resumo" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; font-family: sans-serif;">
-  <div style="background: #222; color: #fff; padding: 30px; border-radius: 12px; border: 2px solid #00ffaa; max-width: 450px; width: 90%; text-align: center; box-shadow: 0 0 20px rgba(0,255,170,0.3);">
-    <h2 style="color: #00ffaa; margin-top: 0; font-size: 24px;">🏎️ Treinamento Concluído!</h2>
-    <p style="color: #aaa; margin-bottom: 25px;">A inteligência artificial dominou todos os circuitos. Veja o relatório de evolução:</p>
-    
-    <div style="text-align: left; background: #111; padding: 15px; border-radius: 8px; margin-bottom: 25px; line-height: 1.8;">
-      <p>📍 <strong>Pista 1:</strong> Levou <span id="resumo-pista1" style="color: #ffd700; font-weight: bold;">--</span> gerações para aprender.</p>
-      <p>📍 <strong>Pista 2:</strong> Levou <span id="resumo-pista2" style="color: #ffd700; font-weight: bold;">--</span> gerações para aprender.</p>
-      <p>📍 <strong>Pista 3:</strong> Levou <span id="resumo-pista3" style="color: #ffd700; font-weight: bold;">--</span> gerações para aprender.</p>
+  <!-- Modal de resumo final -->
+  <div id="modal-resumo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+       background:rgba(0,0,0,0.85); z-index:10000; justify-content:center; align-items:center; font-family:sans-serif;">
+    <div style="background:#222; color:#fff; padding:30px; border-radius:12px; border:2px solid #00ffaa;
+                max-width:450px; width:90%; text-align:center; box-shadow:0 0 20px rgba(0,255,170,0.3);">
+      <h2 style="color:#00ffaa; margin-top:0; font-size:24px;">🏎️ Treinamento Concluído!</h2>
+      <p style="color:#aaa; margin-bottom:25px;">
+        A IA dominou todos os circuitos. Exporte o JSON para preservar os campeões!
+      </p>
+      <div style="text-align:left; background:#111; padding:15px; border-radius:8px; margin-bottom:25px; line-height:1.8;">
+        <p>📍 <strong>Pista 1:</strong> <span id="resumo-pista1" style="color:#ffd700; font-weight:bold;">--</span> gerações</p>
+        <p>📍 <strong>Pista 2:</strong> <span id="resumo-pista2" style="color:#ffd700; font-weight:bold;">--</span> gerações</p>
+        <p>📍 <strong>Pista 3:</strong> <span id="resumo-pista3" style="color:#ffd700; font-weight:bold;">--</span> gerações</p>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <button onclick="window.storageInstance && window.storageInstance.exportToFile(); this.innerText='✅ Exportado!'"
+                style="background:#00ffaa; color:#000; border:none; padding:12px 20px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">
+          ⬇ Exportar Campeões JSON
+        </button>
+        <button id="btn-fechar-modal"
+                style="background:#333; color:#fff; border:1px solid #555; padding:12px 20px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">
+          Continuar Simulação
+        </button>
+      </div>
     </div>
-
-    <button id="btn-fechar-modal" style="background: #00ffaa; color: #000; border: none; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s;">
-      Continuar Simulação
-    </button>
   </div>
-</div>
 
 </body>
 </html>

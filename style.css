@@ -257,3 +257,36 @@ body.project-complete .sidebar-header h1::after {
     height: 60vh;
   }
 }
+
+/* ── Novos estilos v3: persistência multi-pista ────────────────────── */
+.btn.danger {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border-color: #b91c1c;
+}
+.btn.danger:hover { background: #991b1b; }
+
+.storage-status {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.storage-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 0.82rem;
+}
+.storage-row span { color: #8b949e; }
+
+.storage-hint {
+  font-size: 0.74rem;
+  color: #6e7681;
+  line-height: 1.4;
+  margin: 4px 0 0;
+}
+.storage-hint strong { color: #58a6ff; }

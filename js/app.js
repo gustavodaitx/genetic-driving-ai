@@ -1,22 +1,31 @@
 /**
- * Aplicação principal — loop com turbo real,
- * controlo de inputs, renderização e HUD completo.
+ * app.js v4 — Loop principal com persistência orientada à conclusão.
+ *
+ * FLUXO DE SALVAMENTO:
+ *  - A cada geração, o GA devolve stats com completorsThisGen.
+ *  - Qualquer carro que concluiu a pista é salvo via storage.saveChampion().
+ *  - Ao trocar de pista, storage.getSeedBrainsForTrack() devolve APENAS
+ *    completadores — garantindo que a nova população começa com cérebros
+ *    que já sabem chegar ao fim.
+ *  - Botões de exportar/importar JSON permitem persistir entre sessões.
  */
 (function () {
-  // Inicialização de instâncias globais carregadas pelos outros ficheiros
-  const canvas    = document.getElementById("sim-canvas");
+  const canvas     = document.getElementById("sim-canvas");
   const visualizer = new Visualizer(canvas);
-  const storage   = new StorageManager();
-  let track       = new Track(0);
-  let ga          = new GeneticAlgorithm();
-  
-  let running     = true;
-  let paused      = false;
-  let simSpeed    = 1;
-  let turboMode   = false;
+  const storage    = new StorageManager();
+  window.storageInstance = storage; // exposto para o modal
+
+  let track     = new Track(0);
+  let ga        = new GeneticAlgorithm();
+  let running   = true;
+  let paused    = false;
+  let simSpeed  = 1;
+  let turboMode = false;
 
   const charts = { fitness: null, distance: null };
+  const historicoGeracoes = { pista0: "N/A", pista1: "N/A", pista2: "N/A" };
 
+  // ── Charts ───────────────────────────────────────────────────────────────
   function initCharts() {
     const fitCtx  = document.getElementById("chart-fitness");
     const distCtx = document.getElementById("chart-distance");
@@ -28,100 +37,110 @@
         labels: [],
         datasets: [
           { label: "Melhor fitness",     data: [], borderColor: "#ffd700", tension: 0.2, fill: false },
-          { label: "Média populacional", data: [], borderColor: "#4a9eff", tension: 0.2, fill: false }
-        ]
+          { label: "Média populacional", data: [], borderColor: "#4a9eff", tension: 0.2, fill: false },
+        ],
       },
-      options: { responsive: true, maintainAspectRatio: false }
+      options: { responsive: true, maintainAspectRatio: false },
     });
 
     charts.distance = new Chart(distCtx, {
       type: "line",
       data: {
         labels: [],
-        datasets: [{ label: "Melhor Distância", data: [], borderColor: "#00ffaa", tension: 0.2, fill: false }]
+        datasets: [{ label: "Completadores/geração", data: [], borderColor: "#00ffaa", tension: 0.2, fill: false }],
       },
-      options: { responsive: true, maintainAspectRatio: false }
+      options: { responsive: true, maintainAspectRatio: false },
     });
   }
 
-  function updateCharts(gen, bestFit, avgFit, bestDist) {
+  function updateCharts(gen, bestFit, avgFit, completors) {
     if (!charts.fitness || !charts.distance) return;
-    
     charts.fitness.data.labels.push(gen);
     charts.fitness.data.datasets[0].data.push(bestFit);
     charts.fitness.data.datasets[1].data.push(avgFit);
     charts.fitness.update();
-
     charts.distance.data.labels.push(gen);
-    charts.distance.data.datasets[0].data.push(bestDist);
+    charts.distance.data.datasets[0].data.push(completors);
     charts.distance.update();
   }
 
+  // ── HUD ──────────────────────────────────────────────────────────────────
   function updateHUD() {
-    const elGen      = document.getElementById("hud-generation");
-    const elAlive    = document.getElementById("hud-alive");
-    const elFitness  = document.getElementById("hud-best-fitness");
-    const elDistance = document.getElementById("hud-best-distance");
-    const elTrack    = document.getElementById("hud-track");
-
-    if (elGen)      elGen.innerText      = ga.generation;
-    if (elAlive)    elAlive.innerText    = ga.population.filter(c => c.alive).length;
-    if (elFitness)  elFitness.innerText  = Math.round(ga.stats?.bestFitness || 0);
-    if (elDistance) elDistance.innerText = Math.round(ga.stats?.bestDistance || 0);
-    if (elTrack)    elTrack.innerText    = "Pista " + (track.index + 1);
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+    set("hud-generation",    ga.generation);
+    set("hud-alive",         ga.population.filter(c => c.alive).length);
+    set("hud-best-fitness",  Math.round(ga.stats?.bestFitness || 0));
+    set("hud-best-distance", ga.stats?.bestDistance || 0);
+    set("hud-track",         "Pista " + (track.index + 1));
+    set("hud-completors",    (ga.stats?.completorsThisGen || 0) + " completaram");
+    updateStorageStatus();
   }
 
-  // =================================================================
-  // HISTÓRICO DE GERAÇÕES POR PISTA (Corrigido: apenas uma declaração)
-  // =================================================================
-  const historicoGeracoes = { pista0: "N/A", pista1: "N/A", pista2: "N/A" };
+  function updateStorageStatus() {
+    const s = storage.getStatus();
+    [0, 1, 2].forEach(i => {
+      const el = document.getElementById(`storage-track${i}`);
+      if (!el) return;
+      const n    = s.completionsByTrack[i] || 0;
+      const done = s.completedTracks.includes(i);
+      el.innerText  = n + " completador(es)" + (done ? " ✅" : "");
+      el.style.color = done ? "#00ffaa" : "#aaa";
+    });
+    const uEl = document.getElementById("storage-universal");
+    if (uEl) {
+      uEl.innerText  = s.universalCount + " universal(is)";
+      uEl.style.color = s.universalCount > 0 ? "#ffd700" : "#aaa";
+    }
+  }
 
+  // ── Loop principal ────────────────────────────────────────────────────────
   function simulationStep() {
     if (!running) return;
 
     if (!paused) {
-      const passosFisicos = turboMode ? 20 : Math.max(1, Math.floor(simSpeed));
+      const steps = turboMode ? 20 : Math.max(1, Math.floor(simSpeed));
 
-      for (let i = 0; i < passosFisicos; i++) {
+      for (let step = 0; step < steps; step++) {
         let anyAlive = false;
 
         ga.population.forEach(car => {
-          if (car.alive) {
-            car.update(track);
-            anyAlive = true;
+          if (!car.alive && !car.completed) return;
+          if (car.completed) return; // Já terminou, não processa mais
+          car.update(track);
+          if (car.alive) anyAlive = true;
 
-            // Verificação Automática de Fim de Pista (Salva se chegar ao último checkpoint)
-            if (track.checkpoints && car.checkpointIndex === track.checkpoints.length - 1) {
-              car.alive = false; 
-              storage.saveChampion(car, track.index, ga.generation);
-              showToast("🏆 CAMPEÃO CHEGOU AO FIM! Salvo Automaticamente.");
-              paused = true; 
-
-              // Registra o histórico de gerações da pista atual
-              historicoGeracoes["pista" + track.index] = ga.generation;
-
-              // Se acabou de vencer a Pista 3 (index 2)
-              if (track.index === 2) {
-                exibirPopUpResumo();
-              }
-            }
+          // Detecta conclusão: car.update() seta car.completed = true e car.alive = false
+          if (car.completed) {
+            car.computeFitness(track);
+            storage.saveChampion(car, track.index, ga.generation);
+            historicoGeracoes["pista" + track.index] = ga.generation;
+            showToast(`🏆 PISTA ${track.index + 1} CONCLUÍDA! Gen ${ga.generation} — Salvo.`);
+            paused = true;
+            updateStorageStatus();
+            if (storage.isProjectComplete()) exibirPopUpResumo();
+            return;
           }
         });
 
-        if (!anyAlive) {
+        // Qualquer carro ainda vivo → continua
+        if (anyAlive) break;
+
+        // Toda a população morreu (ou completou): evolui
+        const carrosVivos = ga.population.filter(c => c.alive).length;
+        if (carrosVivos === 0) {
           const stats = ga.evolve(track);
-          
-          const bFit = stats?.bestFitness || ga.stats?.bestFitness || 0;
-          const aFit = stats?.avgFitness || ga.stats?.avgFitness || 0;
-          const bDist = stats?.bestDistance || ga.stats?.bestDistance || 0;
-          
-          updateCharts(ga.generation, Math.round(bFit), Math.round(aFit), Math.round(bDist));
-          
-          const bestCar = ga.getBestCar();
-          if (bestCar && bFit > 0) {
-            storage.saveChampion(bestCar, track.index, ga.generation);
+          updateCharts(
+            ga.generation,
+            Math.round(stats.bestFitness),
+            Math.round(stats.avgFitness),
+            stats.completorsThisGen || 0
+          );
+
+          // Salva o melhor não-completador apenas para histórico de UI
+          const best = ga.getBestCar();
+          if (best && !best.completed) {
+            storage.saveChampion(best, track.index, ga.generation);
           }
-          
           break;
         }
       }
@@ -129,145 +148,150 @@
 
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     const melhorCarro = ga.getBestCar();
-    visualizer.render(track, ga.population, melhorCarro, { 
-      paused: paused, 
-      turboMode: turboMode,
-      showSensors: true
+    visualizer.render(track, ga.population, melhorCarro, {
+      paused, turboMode, showSensors: true,
     });
-    
+
     updateHUD();
     requestAnimationFrame(simulationStep);
   }
 
+  // ── Modal de resumo ───────────────────────────────────────────────────────
   function exibirPopUpResumo() {
-    const p1 = document.getElementById("resumo-pista1");
-    const p2 = document.getElementById("resumo-pista2");
-    const p3 = document.getElementById("resumo-pista3");
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+    set("resumo-pista1", historicoGeracoes.pista0);
+    set("resumo-pista2", historicoGeracoes.pista1);
+    set("resumo-pista3", historicoGeracoes.pista2);
     const modal = document.getElementById("modal-resumo");
-
-    if (p1) p1.innerText = historicoGeracoes.pista0;
-    if (p2) p2.innerText = historicoGeracoes.pista1;
-    if (p3) p3.innerText = historicoGeracoes.pista2;
-    
-    if (modal) {
-      modal.style.display = "flex";
-    }
+    if (modal) modal.style.display = "flex";
   }
 
+  // ── Inicialização da simulação ────────────────────────────────────────────
   function startSimulation() {
     running = true;
     requestAnimationFrame(simulationStep);
   }
 
+  /**
+   * Reinicia a população para a pista atual.
+   * Usa APENAS completadores como semente (via getSeedBrainsForTrack).
+   */
   function resetSimulation() {
-    const brains = storage.getBestBrainsForTrack(track.index);
-    const ghost  = storage.getGhostPath(track.index);
-    ga.createInitialPopulation(track, brains.length ? brains : null, ghost);
+    const seeds = storage.getSeedBrainsForTrack(track.index);
+    const ghost = storage.getGhostPath(track.index);
+    ga.createInitialPopulation(track, seeds.length ? seeds : null, ghost);
     updateHUD();
   }
 
+  // ── Toast ─────────────────────────────────────────────────────────────────
   function showToast(msg) {
     const toast = document.getElementById("toast");
     if (!toast) return;
-    toast.innerText = msg;
-    toast.style.transform = "translateX(-50%) translateY(0px)";
-    toast.style.opacity = "1";
+    toast.innerText           = msg;
+    toast.style.transform     = "translateX(-50%) translateY(0px)";
+    toast.style.opacity       = "1";
     setTimeout(() => {
-      toast.style.transform = "translateX(-50%) translateY(20px)";
-      toast.style.opacity = "0";
-    }, 3000);
+      toast.style.transform   = "translateX(-50%) translateY(20px)";
+      toast.style.opacity     = "0";
+    }, 4000);
   }
 
+  // ── Controles ─────────────────────────────────────────────────────────────
   function bindControls() {
-    // Botões de controle de fluxo superior
     document.getElementById("btn-start")?.addEventListener("click", () => {
-      paused = false;
-      showToast("Simulação Rodando");
+      paused = false; showToast("Simulação rodando…");
     });
-
     document.getElementById("btn-pause")?.addEventListener("click", () => {
-      paused = true;
-      showToast("Simulação Pausada");
+      paused = true; showToast("Pausado.");
     });
-
     document.getElementById("btn-reset")?.addEventListener("click", () => {
       ga.generation = 1;
       resetSimulation();
-      showToast("População reiniciada do zero!");
+      showToast("População reiniciada com sementes salvas.");
     });
-
-    // Ação do botão para fechar o pop-up de resumo
     document.getElementById("btn-fechar-modal")?.addEventListener("click", () => {
-      const modal = document.getElementById("modal-resumo");
-      if (modal) modal.style.display = "none";
+      const m = document.getElementById("modal-resumo");
+      if (m) m.style.display = "none";
     });
 
-    // Modo Turbo Alternável (Toggle)
+    // Turbo
     const turboBtn = document.getElementById("btn-turbo");
     turboBtn?.addEventListener("click", () => {
       turboMode = !turboMode;
-      if (turboMode) {
-        turboBtn.classList.add("active");
-        showToast("Modo Turbo Ativado (20x físico/frame)!");
+      turboBtn.classList.toggle("active", turboMode);
+      showToast(turboMode ? "Turbo ON (20×)" : "Turbo OFF");
+    });
+
+    // Export JSON
+    document.getElementById("btn-export-json")?.addEventListener("click", () => {
+      const s = storage.getStatus();
+      const total = Object.values(s.completionsByTrack).reduce((a, b) => a + b, 0);
+      if (total === 0) { showToast("Nenhum completador para exportar ainda."); return; }
+      storage.exportToFile();
+      showToast(`📁 JSON exportado! (${total} completador(es))`);
+    });
+
+    // Import JSON
+    document.getElementById("btn-import-json")?.addEventListener("click", async () => {
+      showToast("Escolha o arquivo JSON…");
+      const ok = await storage.importFromFile();
+      if (ok) {
+        ga.generation = 1;
+        resetSimulation();
+        updateStorageStatus();
+        showToast("✅ JSON importado! Cérebros completadores carregados.");
       } else {
-        turboBtn.classList.remove("active");
-        showToast("Modo Turbo Desativado.");
+        showToast("❌ Falha ao importar o arquivo JSON.");
       }
     });
 
-    // Exportação do Campeão Atual via clipboard
+    // Retrocompatibilidade clipboard
     document.getElementById("btn-save")?.addEventListener("click", () => {
-      const bestCar = ga.getBestCar();
-      if (bestCar) {
-        const json = storage.exportChampion(track.index);
-        if (json) {
-          navigator.clipboard.writeText(json);
-          showToast("Cérebro do Campeão copiado para a Área de Transferência!");
-        }
-      } else {
-        showToast("Nenhum carro qualificado para salvar ainda.");
-      }
+      const json = storage.exportChampion(track.index);
+      if (json) { navigator.clipboard?.writeText(json).catch(() => {}); showToast("Copiado!"); }
+      else showToast("Nenhum completador nesta pista ainda.");
     });
-
-    // Importação de DNA
     document.getElementById("btn-load")?.addEventListener("click", () => {
-      const jsonInput = prompt("Cole o JSON do cérebro do campeão guardado:");
-      if (jsonInput) {
-        const success = storage.importChampion(jsonInput, track.index);
-        if (success) {
-          ga.generation = 1;
-          resetSimulation();
-          showToast("Campeão Carregado com sucesso na pista!");
-        } else {
-          showToast("Erro: JSON de DNA inválido.");
-        }
+      const j = prompt("Cole o JSON do campeão:");
+      if (j) {
+        const ok = storage.importChampion(j, track.index);
+        if (ok) { ga.generation = 1; resetSimulation(); showToast("Campeão carregado!"); }
+        else showToast("JSON inválido.");
       }
     });
 
-    // Sliders de Ajuste Dinâmico em Tempo Real
+    // Limpar
+    document.getElementById("btn-clear-storage")?.addEventListener("click", () => {
+      if (confirm("Apagar TODOS os completadores salvos? Esta ação é irreversível.")) {
+        storage.clear();
+        ga.generation = 1;
+        ga.createInitialPopulation(track, null, null);
+        updateStorageStatus();
+        showToast("🗑️ Dados limpos. Começando do zero.");
+      }
+    });
+
+    // Sliders
     const speedSlider = document.getElementById("slider-speed");
     speedSlider?.addEventListener("input", () => {
       simSpeed = parseFloat(speedSlider.value);
-      const lbl = document.getElementById("label-speed");
-      if (lbl) lbl.innerText = simSpeed.toFixed(1) + "x";
+      const l = document.getElementById("label-speed");
+      if (l) l.innerText = simSpeed.toFixed(1) + "x";
     });
-
     const mutSlider = document.getElementById("slider-mutation");
     mutSlider?.addEventListener("input", () => {
       ga.setRates(parseFloat(mutSlider.value), null);
-      const lbl = document.getElementById("label-mutation");
-      if (lbl) lbl.innerText = parseFloat(mutSlider.value).toFixed(3);
+      const l = document.getElementById("label-mutation");
+      if (l) l.innerText = parseFloat(mutSlider.value).toFixed(3);
     });
-
     const crossSlider = document.getElementById("slider-crossover");
     crossSlider?.addEventListener("input", () => {
       ga.setRates(null, parseFloat(crossSlider.value));
-      const lbl = document.getElementById("label-crossover");
-      if (lbl) lbl.innerText = parseFloat(crossSlider.value).toFixed(2);
+      const l = document.getElementById("label-crossover");
+      if (l) l.innerText = parseFloat(crossSlider.value).toFixed(2);
     });
-
     const popSlider = document.getElementById("slider-population");
     popSlider?.addEventListener("change", () => {
       ga.setPopulationSize(parseInt(popSlider.value, 10));
@@ -275,36 +299,37 @@
       resetSimulation();
     });
 
-    // Escuta para Seleção de Pistas
-    document.querySelectorAll("[data-track]").forEach((btn) => {
+    // Seleção de pistas
+    document.querySelectorAll("[data-track]").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll("[data-track]").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
 
-        const trackIdx = parseInt(btn.dataset.track, 10);
-        track.setTrack(trackIdx);
+        const idx = parseInt(btn.dataset.track, 10);
+        track.setTrack(idx);
         track.resetCheckpoints();
-        
-        const brains = storage.getBestBrainsForTrack(trackIdx);
-        const ghost  = storage.getGhostPath(trackIdx);
+
+        const seeds = storage.getSeedBrainsForTrack(idx);
+        const ghost = storage.getGhostPath(idx);
         ga.generation = 1;
-        ga.createInitialPopulation(track, brains.length ? brains : null, ghost);
-        
-        showToast(`Mudou para a Pista ${trackIdx + 1}`);
+        ga.createInitialPopulation(track, seeds.length ? seeds : null, ghost);
+
+        showToast(`Pista ${idx + 1} — ${seeds.length} cérebro(s) completador(es) como semente`);
         updateHUD();
       });
     });
   }
 
+  // ── Init ──────────────────────────────────────────────────────────────────
   function init() {
     initCharts();
     bindControls();
     resetSimulation();
     startSimulation();
-    showToast("IA Genética v2 iniciada — Treino em execução!");
+    showToast("IA Genética v4 — Persistência orientada à conclusão!");
+    updateStorageStatus();
   }
 
-  // Monitor de ciclo seguro de carregamento do DOM
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
