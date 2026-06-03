@@ -2,9 +2,9 @@
  * Rede neural feedforward profissional adaptada para direção autônoma (16 Inputs).
  */
 (function (global) {
-  const INPUT_SIZE  = 17;  // ATUALIZADO: Cobertura completa com 9 sensores + info de direcao e velocidade
-  const HIDDEN_SIZE = 20;  // Camada oculta balanceada
-  const OUTPUT_SIZE = 4;   // [Acelerar, Frear, Esquerda, Direita]
+  const INPUT_SIZE  = 33;  // ATUALIZADO: 20 sensores + 3 longRange + 10 direcional/velocidade info
+  const HIDDEN_SIZE = 24;  // Camada oculta balanceada
+  const OUTPUT_SIZE = 3;   // [Acelerar, Frear, Esquerda, Direita]
 
   function randomWeight() { return (Math.random() * 2 - 1) * 0.5; }
   function sigmoid(x)     { return 1 / (1 + Math.exp(-Math.max(-20, Math.min(20, x)))); }

@@ -36,8 +36,17 @@ body {
 
 .sim-area {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.canvas-wrap {
+  flex: 1;
   position: relative;
   overflow: hidden;
+  min-height: 0;
 }
 
 #sim-canvas {
@@ -212,9 +221,9 @@ input[type="range"] {
   background: #0a0e12;
   border-radius: 6px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  padding: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 6px;
 }
 
 .sensor-row {
@@ -326,24 +335,22 @@ body.project-complete .sidebar-header h1::after {
 
 /* ── ESTILOS CUSTOMIZADOS ADICIONADOS ── */
 
-/* Barra de Ferramentas Flutuante com Glassmorphism */
+/* Barra de Ferramentas — parte inferior */
 .sim-toolbar {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
+  order: 2;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 5px;
   align-items: center;
-  background: rgba(10, 14, 20, 0.82);
+  background: rgba(10, 14, 20, 0.95);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
   z-index: 100;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 -3px 16px rgba(0, 0, 0, 0.5);
+  overflow-x: auto;
+  flex-shrink: 0;
 }
 
 .sim-toolbar .divider {
@@ -388,7 +395,7 @@ body.project-complete .sidebar-header h1::after {
   position: absolute;
   bottom: 20px;
   right: 20px;
-  width: 120px;
+  width: 160px;
   background: rgba(18, 24, 32, 0.85);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -401,9 +408,17 @@ body.project-complete .sidebar-header h1::after {
   gap: 4px;
   z-index: 90;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
-  pointer-events: none; /* Não atrapalha cliques no canvas se necessário */
+  pointer-events: none;
   border-top-color: rgba(0, 255, 170, 0.4);
 }
+
+.speed-digital {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: -12px;
+}
+
 
 .speed-dial {
   width: 90px;
@@ -432,12 +447,6 @@ body.project-complete .sidebar-header h1::after {
   filter: drop-shadow(0 0 2px #ff8844);
 }
 
-.speed-digital {
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-  margin-top: -12px;
-}
 
 #speed-value {
   font-family: 'Courier New', Courier, monospace;
@@ -452,6 +461,29 @@ body.project-complete .sidebar-header h1::after {
   color: var(--muted);
   text-transform: uppercase;
   font-weight: bold;
+}
+
+/* Gear HUD inline with speedometer */
+.gear-hud {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid #30404f;
+}
+.gear-label {
+  font-size: 0.5rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.gear-value {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255,215,0,0.6);
 }
 
 /* Modo Campeonato toggle wrap style */
@@ -620,4 +652,247 @@ body.project-complete .sidebar-header h1::after {
 .mciclo-btn-continuar:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(255,215,0,0.4);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NOVOS ESTILOS v5 — 3 MODOS: MANUAL / TREINAR / CORRIDA
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Seletor de Modo ───────────────────────────────────────────────────── */
+.mode-selector {
+  display: flex;
+  gap: 3px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  padding: 3px;
+  border: 1px solid var(--border);
+}
+
+.mode-btn {
+  flex: 1;
+  min-width: 80px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: var(--muted) !important;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  color: var(--text) !important;
+  background: rgba(255,255,255,0.05) !important;
+}
+
+.mode-btn.active[data-mode="manual"] {
+  background: rgba(74, 222, 128, 0.15) !important;
+  border-color: #4ade80 !important;
+  color: #4ade80 !important;
+  box-shadow: 0 0 10px rgba(74,222,128,0.2);
+}
+
+.mode-btn.active[data-mode="train"] {
+  background: rgba(74, 158, 255, 0.15) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  box-shadow: 0 0 10px rgba(74,158,255,0.2);
+}
+
+.mode-btn.active[data-mode="race"] {
+  background: rgba(255, 215, 0, 0.15) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+  box-shadow: 0 0 10px rgba(255,215,0,0.2);
+}
+
+/* ── Banner de Modo Ativo ─────────────────────────────────────────────── */
+.mode-banner {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border-left: 3px solid;
+  background: rgba(10,14,20,0.82);
+  backdrop-filter: blur(6px);
+  z-index: 50;
+  pointer-events: none;
+}
+
+.mode-banner span:first-child {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.mode-banner span:last-child {
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.mode-banner.mode-manual {
+  border-color: #4ade80;
+}
+.mode-banner.mode-manual span:first-child { color: #4ade80; }
+
+.mode-banner.mode-train {
+  border-color: var(--accent);
+}
+.mode-banner.mode-train span:first-child { color: var(--accent); }
+
+.mode-banner.mode-race {
+  border-color: var(--gold);
+}
+.mode-banner.mode-race span:first-child { color: var(--gold); }
+
+/* ── Version badge ────────────────────────────────────────────────────── */
+.version-badge {
+  font-size: 0.6rem;
+  background: rgba(74,158,255,0.15);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 5px;
+  vertical-align: middle;
+  font-weight: 600;
+}
+
+/* ── Controles Manuais ────────────────────────────────────────────────── */
+.manual-controls {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(10,14,20,0.85);
+  backdrop-filter: blur(6px);
+  border: 1px solid #4ade80;
+  border-radius: 10px;
+  padding: 12px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.manual-controls.hidden { display: none !important; }
+
+.manual-key-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 36px);
+  gap: 4px;
+}
+
+.key-btn {
+  width: 36px;
+  height: 36px;
+  background: #1a2430;
+  border: 1px solid #30404f;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text);
+  transition: all 0.1s;
+  user-select: none;
+}
+
+.key-btn-wide {
+  width: 100%;
+  height: 28px;
+  font-size: 0.72rem;
+  margin-top: 4px;
+  border-radius: 6px;
+}
+
+.key-btn.pressed {
+  background: rgba(74, 222, 128, 0.2);
+  border-color: #4ade80;
+  color: #4ade80;
+  transform: scale(0.95);
+  box-shadow: 0 0 8px rgba(74,222,128,0.3);
+}
+
+.manual-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+/* ── Info painel modo manual ──────────────────────────────────────────── */
+.manual-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+kbd {
+  background: #1a2430;
+  border: 1px solid #30404f;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: var(--text);
+  min-width: 36px;
+  text-align: center;
+}
+
+.manual-stats {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Auto-progression checkbox ────────────────────────────────────────── */
+.auto-progression-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.auto-progression-wrap input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.auto-progression-wrap label {
+  font-size: 0.75rem;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+/* ── Carro manual na corrida (visual diferente) ───────────────────────── */
+.manual-car-active .speedometer-widget {
+  border-color: #4ade80;
+  box-shadow: 0 0 15px rgba(74,222,128,0.2);
 }

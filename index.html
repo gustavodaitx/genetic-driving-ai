@@ -3,100 +3,147 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IA Genética — DeepCars JS</title>
+  <title>IA Genética — DeepCars JS v5</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div id="app">
     <main class="sim-area">
+
+      <div class="canvas-wrap">
+        <canvas id="sim-canvas"></canvas>
+
+        <!-- Mode banner sobreposto no canvas -->
+        <div id="mode-banner" class="mode-banner mode-train">
+          <span id="mode-banner-text">🧬 MODO TREINAR — Algoritmo Genético Ativo</span>
+          <span id="mode-banner-hint">200 carros evoluindo · Use ⚡ Turbo para acelerar</span>
+        </div>
+
+        <!-- Velocímetro HUD -->
+        <div id="speedometer-widget" class="speedometer-widget">
+          <div class="speed-dial">
+            <svg class="speed-dial-svg" viewBox="0 0 100 100">
+              <path class="dial-bg" d="M 20 80 A 40 40 0 1 1 80 80" />
+              <path id="dial-needle" class="dial-needle" d="M 50 50 L 50 15"
+                    stroke="#ff8844" stroke-width="3" stroke-linecap="round" />
+              <circle cx="50" cy="50" r="5" fill="#ffd700" />
+            </svg>
+          </div>
+          <div class="speed-digital">
+            <span id="speed-value">0</span>
+            <span class="speed-unit">km/h</span>
+          </div>
+          <div id="gear-hud" class="gear-hud" style="display:none;">
+            <span class="gear-label">MARCHA</span>
+            <span id="gear-value" class="gear-value">1ª</span>
+          </div>
+        </div>
+
+        <!-- Controles Manual (visível só no modo manual) -->
+        <div id="manual-controls" class="manual-controls hidden">
+          <div class="manual-key-grid">
+            <div></div>
+            <div class="key-btn" id="key-up">W</div>
+            <div></div>
+            <div class="key-btn" id="key-left">A</div>
+            <div class="key-btn" id="key-down">S</div>
+            <div class="key-btn" id="key-right">D</div>
+          </div>
+          <div class="key-btn key-btn-wide" id="key-space">ESPAÇO ✋</div>
+          <div class="manual-info">
+            <span>WASD ou ↑←↓→ para dirigir</span>
+            <span>Espaço = freio de mão · R = reiniciar</span>
+          </div>
+        </div>
+
+        <div id="toast"></div>
+      </div>
+
+      <!-- Toolbar principal — parte inferior -->
       <div class="sim-toolbar">
-        <button id="btn-start"  class="btn success">Iniciar</button>
-        <button id="btn-pause"  class="btn">Pausar</button>
-        <button id="btn-stop"   class="btn danger">Parar</button>
-        <button id="btn-reset"  class="btn warn">Resetar</button>
-        <button id="btn-race" class="btn" style="background:linear-gradient(135deg,#7c3aed,#4c1d95);border-color:#7c3aed;color:#e9d5ff;font-weight:bold;" title="Spawna 200 carros baseados na melhor pop. salva">&#127937; Corrida</button>
+        <!-- Seletor de Modo -->
+        <div class="mode-selector">
+          <button class="btn mode-btn" data-mode="manual" title="Controle manual com WASD/setas">🎮 Manual</button>
+          <button class="btn mode-btn active" data-mode="train" title="Algoritmo genético — 200 carros evoluem">🧬 Treinar</button>
+          <button class="btn mode-btn" data-mode="race" title="Corrida com os melhores cérebros salvos">🏁 Corrida</button>
+        </div>
+
         <div class="divider"></div>
+
+        <!-- Controles de simulação -->
+        <button id="btn-start"  class="btn success">▶ Iniciar</button>
+        <button id="btn-pause"  class="btn">⏸ Pausar</button>
+        <button id="btn-stop"   class="btn danger">⏹ Parar</button>
+        <button id="btn-reset"  class="btn warn">↺ Resetar</button>
+
+        <div class="divider"></div>
+
+        <!-- Velocidade -->
         <div class="speed-control-group">
-          <span class="speed-label">Velocidade:</span>
-          <button class="btn speed-btn active" data-speed="1">1x</button>
-          <button class="btn speed-btn" data-speed="2">2x</button>
-          <button class="btn speed-btn" data-speed="3">3x</button>
-          <button class="btn speed-btn" data-speed="5">5x</button>
-          <button class="btn speed-btn" data-speed="10">10x</button>
-          <button class="btn speed-btn" data-speed="turbo">Turbo</button>
+          <span class="speed-label">Vel:</span>
+          <button class="btn speed-btn active" data-speed="1">1×</button>
+          <button class="btn speed-btn" data-speed="2">2×</button>
+          <button class="btn speed-btn" data-speed="3">3×</button>
+          <button class="btn speed-btn" data-speed="5">5×</button>
+          <button class="btn speed-btn" data-speed="10">10×</button>
+          <button class="btn speed-btn" data-speed="turbo">⚡ Turbo</button>
         </div>
+
         <div class="divider"></div>
-        <!-- Novos botões de arquivo JSON -->
-        <button id="btn-export-json" class="btn success" title="Baixa um arquivo .json com todos os campeões salvos">⬇ Exportar JSON</button>
-        <button id="btn-import-json" class="btn"         title="Carrega um arquivo .json exportado anteriormente">⬆ Importar JSON</button>
-        <button id="btn-clear-storage" class="btn danger" title="Apaga todos os dados salvos">🗑 Limpar Dados</button>
+
+        <!-- Persistência -->
+        <button id="btn-export-json"   class="btn success" title="Baixa JSON com todos os campeões">⬇ Exportar</button>
+        <button id="btn-import-json"   class="btn"         title="Carrega JSON exportado">⬆ Importar</button>
+        <button id="btn-clear-storage" class="btn danger"  title="Apaga todos os dados">🗑 Limpar</button>
       </div>
 
-      <canvas id="sim-canvas"></canvas>
-      
-      <!-- Speedometer HUD Widget (canto inferior direito) -->
-      <div id="speedometer-widget" class="speedometer-widget">
-        <div class="speed-dial">
-          <svg class="speed-dial-svg" viewBox="0 0 100 100">
-            <path class="dial-bg" d="M 20 80 A 40 40 0 1 1 80 80" />
-            <path id="dial-needle" class="dial-needle" d="M 50 50 L 50 15" stroke="#ff8844" stroke-width="3" stroke-linecap="round" />
-            <circle cx="50" cy="50" r="5" fill="#ffd700" />
-          </svg>
-        </div>
-        <div class="speed-digital">
-          <span id="speed-value">0</span>
-          <span class="speed-unit">km/h</span>
-        </div>
-      </div>
-
-      <div id="toast"></div>
     </main>
 
     <aside class="sidebar">
       <header class="sidebar-header">
-        <h1>IA Genética v3</h1>
-        <p class="subtitle">Evolução de Redes Neuronais em tempo real</p>
+        <h1>IA Genética <span class="version-badge">v5</span></h1>
+        <p class="subtitle">Neuroevolução em tempo real · 3 pistas · 200 carros</p>
       </header>
 
+      <!-- Selecionar Pista -->
       <section class="panel">
         <h2>Selecionar Pista</h2>
         <div class="track-select">
-          <button class="btn track-btn active" data-track="0">Mônaco</button>
-          <button class="btn track-btn"        data-track="1">Monza</button>
-          <button class="btn track-btn"        data-track="2">Interlagos</button>
+          <button class="btn track-btn active" data-track="0">🏎 Mônaco</button>
+          <button class="btn track-btn"        data-track="1">⚡ Monza</button>
+          <button class="btn track-btn"        data-track="2">🌀 Interlagos</button>
         </div>
       </section>
 
-      <!-- Novo: Controle de Progressão Automática -->
-      <section class="panel">
+      <!-- Campeonato Automático -->
+      <section class="panel" id="panel-championship">
         <h2>Modo Campeonato</h2>
-        <div class="auto-progression-wrap" style="display:flex; align-items:center; gap:8px; padding:4px 0;">
-          <input type="checkbox" id="chk-auto-progression" checked style="width:16px; height:16px; cursor:pointer;" />
-          <label for="chk-auto-progression" style="font-size:0.75rem; color:var(--text); cursor:pointer; font-weight:bold; user-select:none;">
-            Campeonato Automático
-          </label>
+        <div class="auto-progression-wrap">
+          <input type="checkbox" id="chk-auto-progression" checked />
+          <label for="chk-auto-progression">Campeonato Automático</label>
         </div>
-        <p class="storage-hint" style="margin-top:2px;">
-          Troca de pista a cada 6 gerações (total 18) e ajusta o aprendizado dos novos carros.
+        <p class="storage-hint">
+          Rotação automática: Mônaco (gen 1–6) → Monza (7–12) → Interlagos (13–18).
+          Objetivo: rede que conclui <em>qualquer</em> pista.
         </p>
       </section>
- 
-      <!-- NOVO: Painel de status da persistência multi-pista -->
+
+      <!-- Campeões Salvos -->
       <section class="panel">
         <h2>💾 Campeões Salvos</h2>
         <div class="storage-status">
           <div class="storage-row">
-            <span>Mônaco:</span>
-            <strong id="storage-track0" style="color:#aaa">0 campeão(ões)</strong>
+            <span>🏎 Mônaco:</span>
+            <strong id="storage-track0" style="color:#aaa">0 completador(es)</strong>
           </div>
           <div class="storage-row">
-            <span>Monza:</span>
-            <strong id="storage-track1" style="color:#aaa">0 campeão(ões)</strong>
+            <span>⚡ Monza:</span>
+            <strong id="storage-track1" style="color:#aaa">0 completador(es)</strong>
           </div>
           <div class="storage-row">
-            <span>Interlagos:</span>
-            <strong id="storage-track2" style="color:#aaa">0 campeão(ões)</strong>
+            <span>🌀 Interlagos:</span>
+            <strong id="storage-track2" style="color:#aaa">0 completador(es)</strong>
           </div>
           <div class="storage-row" style="margin-top:6px; border-top:1px solid #333; padding-top:6px;">
             <span>🌟 Universais:</span>
@@ -104,60 +151,143 @@
           </div>
         </div>
         <p class="storage-hint">
-          Ao trocar de pista, os melhores cérebros de <em>todas</em> as pistas são usados como semente.
-          Use <strong>Exportar JSON</strong> para salvar o progresso em arquivo.
+          Completadores de todas as pistas viram <strong>universais</strong> — semente prioritária.
+          Use <strong>Exportar</strong> para salvar em arquivo.
         </p>
       </section>
 
+      <!-- Dashboard / HUD -->
       <section class="panel">
-        <h2>Dashboard / HUD</h2>
+        <h2>Dashboard</h2>
         <div class="hud-grid">
           <div class="hud-item"><span>Geração</span>        <strong id="hud-generation">1</strong></div>
           <div class="hud-item"><span>Carros Vivos</span>   <strong id="hud-alive">0</strong></div>
           <div class="hud-item"><span>Melhor Fitness</span> <strong id="hud-best-fitness">0</strong></div>
-          <div class="hud-item"><span>Melhor Checkpoint</span><strong id="hud-best-distance">0</strong></div>
+          <div class="hud-item"><span>Melhor CP</span>      <strong id="hud-best-distance">0</strong></div>
           <div class="hud-item"><span>Pista Atual</span>    <strong id="hud-track" class="small">—</strong></div>
-          <div class="hud-item"><span>Esta Geração</span>   <strong id="hud-completors" style="color:#00ffaa">0 completaram</strong></div>
+          <div class="hud-item"><span>Completaram</span>    <strong id="hud-completors" style="color:#00ffaa">0</strong></div>
+          <div class="hud-item"><span>Modo</span>           <strong id="hud-mode" style="color:#4a9eff">Treinar</strong></div>
+          <div class="hud-item"><span>Velocidade Sim</span> <strong id="hud-speed">1×</strong></div>
         </div>
       </section>
 
-      <section class="panel controls">
+      <!-- Configurações Genéticas (oculto no modo manual) -->
+      <section class="panel controls" id="panel-ga-settings">
         <h2>Configurações Genéticas</h2>
         <label class="slider-label">Taxa de Mutação <span id="label-mutation">0.030</span></label>
         <input type="range" id="slider-mutation" min="0.001" max="0.1" step="0.001" value="0.03" />
- 
+
         <label class="slider-label">Taxa de Crossover <span id="label-crossover">0.50</span></label>
         <input type="range" id="slider-crossover" min="0.1" max="0.99" step="0.01" value="0.5" />
- 
-        <label class="slider-label">Tamanho da População</label>
+
+        <label class="slider-label">Tamanho da População <span id="label-population">200</span></label>
         <input type="range" id="slider-population" min="50" max="300" step="10" value="200" />
       </section>
 
-      <section class="panel chart-panel">
+      <!-- Gráficos (oculto no modo manual) -->
+      <section class="panel chart-panel" id="panel-charts">
         <h2>Evolução do Fitness</h2>
         <div class="chart-wrap"><canvas id="chart-fitness"></canvas></div>
       </section>
 
-      <section class="panel chart-panel">
+      <section class="panel chart-panel" id="panel-charts2">
         <h2>Completadores por Geração</h2>
         <div class="chart-wrap"><canvas id="chart-distance"></canvas></div>
       </section>
 
-      <section class="panel">
-        <h2>Visão do Sensor (Melhor Carro)</h2>
+      <!-- Sensores do Líder (oculto no modo manual) -->
+      <section class="panel" id="panel-sensors">
+        <h2>Visão do Sensor — Líder da IA</h2>
         <div id="sensor-mini" class="sensor-mini">
-          <div class="sensor-row"><span>S0 (L):</span>  <strong id="sensor-val-0">0%</strong></div>
-          <div class="sensor-row"><span>S1 (FLw):</span> <strong id="sensor-val-1">0%</strong></div>
-          <div class="sensor-row"><span>S2 (FL):</span>  <strong id="sensor-val-2">0%</strong></div>
-          <div class="sensor-row"><span>S3 (FLn):</span> <strong id="sensor-val-3">0%</strong></div>
-          <div class="sensor-row"><span>S4 (Frt):</span> <strong id="sensor-val-4">0%</strong></div>
-          <div class="sensor-row"><span>S5 (FRn):</span> <strong id="sensor-val-5">0%</strong></div>
-          <div class="sensor-row"><span>S6 (FR):</span>  <strong id="sensor-val-6">0%</strong></div>
-          <div class="sensor-row"><span>S7 (FRw):</span> <strong id="sensor-val-7">0%</strong></div>
-          <div class="sensor-row"><span>S8 (R):</span>   <strong id="sensor-val-8">0%</strong></div>
+          <div class="sensor-row"><span>S0 (E):</span>   <strong id="sensor-val-0">0%</strong></div>
+          <div class="sensor-row"><span>S1:</span>      <strong id="sensor-val-1">0%</strong></div>
+          <div class="sensor-row"><span>S2:</span>      <strong id="sensor-val-2">0%</strong></div>
+          <div class="sensor-row"><span>S3:</span>      <strong id="sensor-val-3">0%</strong></div>
+          <div class="sensor-row"><span>S4:</span>      <strong id="sensor-val-4">0%</strong></div>
+          <div class="sensor-row"><span>S5:</span>      <strong id="sensor-val-5">0%</strong></div>
+          <div class="sensor-row"><span>S6:</span>      <strong id="sensor-val-6">0%</strong></div>
+          <div class="sensor-row"><span>S7:</span>      <strong id="sensor-val-7">0%</strong></div>
+          <div class="sensor-row"><span>S8:</span>      <strong id="sensor-val-8">0%</strong></div>
+          <div class="sensor-row"><span>S9:</span>      <strong id="sensor-val-9">0%</strong></div>
+          <div class="sensor-row"><span>S10:</span>     <strong id="sensor-val-10">0%</strong></div>
+          <div class="sensor-row"><span>S11:</span>     <strong id="sensor-val-11">0%</strong></div>
+          <div class="sensor-row"><span>S12:</span>     <strong id="sensor-val-12">0%</strong></div>
+          <div class="sensor-row"><span>S13:</span>     <strong id="sensor-val-13">0%</strong></div>
+          <div class="sensor-row"><span>S14:</span>     <strong id="sensor-val-14">0%</strong></div>
+          <div class="sensor-row"><span>S15:</span>     <strong id="sensor-val-15">0%</strong></div>
+          <div class="sensor-row"><span>S16:</span>     <strong id="sensor-val-16">0%</strong></div>
+          <div class="sensor-row"><span>S17:</span>     <strong id="sensor-val-17">0%</strong></div>
+          <div class="sensor-row"><span>S18:</span>     <strong id="sensor-val-18">0%</strong></div>
+          <div class="sensor-row"><span>S19 (D):</span>   <strong id="sensor-val-19">0%</strong></div>
         </div>
       </section>
+
+      <!-- Info Modo Manual -->
+      <section class="panel" id="panel-manual-info" style="display:none;">
+        <h2>🎮 Modo Manual</h2>
+        <div class="manual-info-panel">
+          <div class="key-row"><kbd>W</kbd> <span>Acelerar (com marchas)</span></div>
+          <div class="key-row"><kbd>S</kbd> <span>Frear (sem ré)</span></div>
+          <div class="key-row"><kbd>A</kbd> <span>Virar esquerda</span></div>
+          <div class="key-row"><kbd>D</kbd> <span>Virar direita</span></div>
+          <div class="key-row"><kbd>Espaço</kbd> <span>Freio de mão / Derrapar</span></div>
+          <div class="key-row"><kbd>R</kbd> <span>Reiniciar posição</span></div>
+          <div class="key-row"><kbd>↑↓←→</kbd> <span>Alternativo</span></div>
+        </div>
+        <div class="manual-stats">
+          <div class="hud-item"><span>Checkpoint</span> <strong id="manual-cp">0</strong></div>
+          <div class="hud-item"><span>Velocidade</span> <strong id="manual-speed">0 km/h</strong></div>
+          <div class="hud-item"><span>Marcha</span>     <strong id="manual-gear" style="color:#ffd700">1ª</strong></div>
+          <div class="hud-item"><span>Status</span>     <strong id="manual-status" style="color:#00ffaa">Vivo</strong></div>
+        </div>
+      </section>
+
     </aside>
+  </div>
+
+  <!-- Modal de fim de ciclo -->
+  <div id="modal-ciclo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+       background:rgba(0,0,0,0.78); z-index:9999; justify-content:center; align-items:center;">
+    <div id="modal-ciclo-inner" class="modal-ciclo-box">
+      <div class="mciclo-header">
+        <span id="mciclo-icon">🏎️</span>
+        <h2 id="mciclo-titulo">Ciclo 1 Concluído</h2>
+        <p id="mciclo-subtitulo">Gen. 1–6 — Mônaco</p>
+      </div>
+      <p class="mciclo-desc">Sobreviventes acumulados por pista ao longo do campeonato:</p>
+      <div id="mciclo-pistas" class="mciclo-pistas"></div>
+      <div class="mciclo-footer">
+        <p id="mciclo-insight" class="mciclo-insight"></p>
+        <button id="btn-ciclo-continuar" class="mciclo-btn-continuar">Continuar ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de resumo final -->
+  <div id="modal-resumo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+       background:rgba(0,0,0,0.85); z-index:10000; justify-content:center; align-items:center; font-family:sans-serif;">
+    <div style="background:#222; color:#fff; padding:30px; border-radius:12px; border:2px solid #00ffaa;
+                max-width:450px; width:90%; text-align:center; box-shadow:0 0 20px rgba(0,255,170,0.3);">
+      <h2 style="color:#00ffaa; margin-top:0; font-size:24px;">🏆 Campeonato Concluído!</h2>
+      <p style="color:#aaa; margin-bottom:25px;">
+        A IA dominou todos os circuitos. Exporte o JSON para preservar os campeões!
+      </p>
+      <div style="text-align:left; background:#111; padding:15px; border-radius:8px; margin-bottom:25px; line-height:1.8;">
+        <p>🏎 <strong>Mônaco:</strong> <span id="resumo-pista1" style="color:#ffd700; font-weight:bold;">--</span> gerações</p>
+        <p>⚡ <strong>Monza:</strong> <span id="resumo-pista2" style="color:#ffd700; font-weight:bold;">--</span> gerações</p>
+        <p>🌀 <strong>Interlagos:</strong> <span id="resumo-pista3" style="color:#ffd700; font-weight:bold;">--</span> gerações</p>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <button onclick="window.storageInstance && window.storageInstance.exportToFile(); this.innerText='✅ Exportado!'"
+                style="background:#00ffaa; color:#000; border:none; padding:12px 20px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">
+          ⬇ Exportar Campeões JSON
+        </button>
+        <button id="btn-fechar-modal"
+                style="background:#333; color:#fff; border:1px solid #555; padding:12px 20px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">
+          Novo Campeonato
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="js/storage.js"></script>
@@ -167,52 +297,8 @@
   <script src="js/car.js"></script>
   <script src="js/visualization.js"></script>
   <script src="js/ga.js"></script>
+  <script src="js/ghost.js"></script>
+  <script src="js/balance.js"></script>
   <script src="js/app.js"></script>
-
-  <!-- Modal de resumo final -->
-  <div id="modal-resumo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
-       background:rgba(0,0,0,0.85); z-index:10000; justify-content:center; align-items:center; font-family:sans-serif;">
-    <div style="background:#222; color:#fff; padding:30px; border-radius:12px; border:2px solid #00ffaa;
-                max-width:450px; width:90%; text-align:center; box-shadow:0 0 20px rgba(0,255,170,0.3);">
-      <h2 style="color:#00ffaa; margin-top:0; font-size:24px;">🏎️ Treinamento Concluído!</h2>
-      <p style="color:#aaa; margin-bottom:25px;">
-        A IA dominou todos os circuitos. Exporte o JSON para preservar os campeões!
-      </p>
-      <div style="text-align:left; background:#111; padding:15px; border-radius:8px; margin-bottom:25px; line-height:1.8;">
-        <p>🏁 <strong>Mônaco:</strong> <span id="resumo-pista1" style="color:#ffd700; font-weight:bold;">--</span> gerações</p>
-        <p>🏁 <strong>Monza:</strong> <span id="resumo-pista2" style="color:#ffd700; font-weight:bold;">--</span> gerações</p>
-        <p>🏁 <strong>Interlagos:</strong> <span id="resumo-pista3" style="color:#ffd700; font-weight:bold;">--</span> gerações</p>
-      </div>
-      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-        <button onclick="window.storageInstance && window.storageInstance.exportToFile(); this.innerText='✅ Exportado!'"
-                style="background:#00ffaa; color:#000; border:none; padding:12px 20px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">
-          ⬇ Exportar Campeões JSON
-        </button>
-        <button id="btn-fechar-modal"
-                style="background:#333; color:#fff; border:1px solid #555; padding:12px 20px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">
-          Continuar Simulação
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal de fim de ciclo (a cada 6 geracoes) -->
-  <div id="modal-ciclo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
-       background:rgba(0,0,0,0.78); z-index:9999; justify-content:center; align-items:center;">
-    <div id="modal-ciclo-inner" class="modal-ciclo-box">
-      <div class="mciclo-header">
-        <span id="mciclo-icon">&#127937;</span>
-        <h2 id="mciclo-titulo">Ciclo 1 Conclu&#237;do</h2>
-        <p id="mciclo-subtitulo">Ger. 1&#8211;6 &mdash; M&#244;naco</p>
-      </div>
-      <p class="mciclo-desc">Sobreviventes acumulados por pista ao longo do campeonato:</p>
-      <div id="mciclo-pistas" class="mciclo-pistas"></div>
-      <div class="mciclo-footer">
-        <p id="mciclo-insight" class="mciclo-insight"></p>
-        <button id="btn-ciclo-continuar" class="mciclo-btn-continuar">Continuar &#9654;</button>
-      </div>
-    </div>
-  </div>
-
 </body>
 </html>

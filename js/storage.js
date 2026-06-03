@@ -18,9 +18,10 @@
  *  por marcar pontos sem concluir.
  */
 (function (global) {
-  const STORAGE_KEY            = "geneticDrivingAI_v4";
+  const STORAGE_KEY = "geneticDrivingAI_v4";
+  const BRAIN_VERSION = 2;
   const MAX_COMPLETERS_PER_TRACK = 8;   // Completadores guardados por pista
-  const MAX_UNIVERSAL           = 5;    // Completadores de todas as pistas
+  const MAX_UNIVERSAL = 5;    // Completadores de todas as pistas
 
   class StorageManager {
     constructor() {
@@ -30,28 +31,50 @@
     _defaultData() {
       return {
         version: 4,
-        // Apenas completadores, por pista: { "0": [...], "1": [...], "2": [...] }
+        brainVersion: BRAIN_VERSION,
         completersByTrack: {},
-        // Indivíduos que completaram as 3 pistas (treinados após todas concluídas)
         universalCompleters: [],
-        // Quais pistas já foram concluídas ao menos uma vez
         completedTracks: [],
-        // Ghost paths para aprendizado visual
         ghostPaths: {},
         projectComplete: false,
-        // Histórico leve para o ranking (inclui não-completadores para UI)
         history: [],
       };
     }
-
     _load() {
       try {
+
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return this._defaultData();
+
+        if (!raw)
+          return this._defaultData();
+
         const parsed = JSON.parse(raw);
-        return { ...this._defaultData(), ...parsed };
-      } catch (e) {
-        console.warn("[Storage] Falha ao carregar:", e);
+
+        if (
+          parsed.brainVersion !== BRAIN_VERSION
+        ) {
+
+          console.log(
+            "[Storage] Rede alterada. Limpando dados antigos."
+          );
+
+          localStorage.removeItem(STORAGE_KEY);
+
+          return this._defaultData();
+        }
+
+        return {
+          ...this._defaultData(),
+          ...parsed
+        };
+
+      } catch (e) { 
+
+        console.warn(
+          "[Storage] Falha ao carregar:",
+          e
+        );
+
         return this._defaultData();
       }
     }
@@ -73,12 +96,12 @@
      */
     saveChampion(car, trackIndex, generation) {
       const entry = {
-        brain:      car.brain.toJSON(),
-        fitness:    car.fitness,
+        brain: car.brain.toJSON(),
+        fitness: car.fitness,
         generation,
         trackIndex,
-        timestamp:  Date.now(),
-        completed:  car.completed || false,
+        timestamp: Date.now(),
+        completed: car.completed || false,
       };
 
       // Histórico de UI (qualquer carro relevante)
@@ -140,7 +163,7 @@
      */
     getSeedBrainsForTrack(trackIndex) {
       const brains = [];
-      const seen   = new Set();
+      const seen = new Set();
 
       const add = (entry) => {
         if (!entry || !entry.brain) return;
@@ -181,7 +204,7 @@
      */
     getAllBestBrains() {
       const brains = [];
-      const seen   = new Set();
+      const seen = new Set();
 
       const add = (entry) => {
         if (!entry || !entry.brain) return;
@@ -208,8 +231,8 @@
     }
 
     // ─── Queries ────────────────────────────────────────────────────────────
-    isTrackCompleted(trackIndex)  { return this.data.completedTracks.includes(trackIndex); }
-    isProjectComplete()           { return this.data.projectComplete; }
+    isTrackCompleted(trackIndex) { return this.data.completedTracks.includes(trackIndex); }
+    isProjectComplete() { return this.data.projectComplete; }
 
     getCompletedCount(trackIndex) {
       return (this.data.completersByTrack[String(trackIndex)] || []).length;
@@ -219,11 +242,11 @@
       const counts = {};
       [0, 1, 2].forEach(i => { counts[i] = this.getCompletedCount(i); });
       return {
-        completedTracks:    this.data.completedTracks,
+        completedTracks: this.data.completedTracks,
         completionsByTrack: counts,
-        universalCount:     this.data.universalCompleters.length,
-        projectComplete:    this.data.projectComplete,
-        historyCount:       this.data.history.length,
+        universalCount: this.data.universalCompleters.length,
+        projectComplete: this.data.projectComplete,
+        historyCount: this.data.history.length,
       };
     }
 
@@ -234,22 +257,22 @@
     // ─── Export / Import JSON ───────────────────────────────────────────────
     exportJSON() {
       return JSON.stringify({
-        exportedAt:          new Date().toISOString(),
-        version:             4,
-        completersByTrack:   this.data.completersByTrack,
+        exportedAt: new Date().toISOString(),
+        version: 4,
+        completersByTrack: this.data.completersByTrack,
         universalCompleters: this.data.universalCompleters,
-        completedTracks:     this.data.completedTracks,
-        ghostPaths:          this.data.ghostPaths,
-        projectComplete:     this.data.projectComplete,
+        completedTracks: this.data.completedTracks,
+        ghostPaths: this.data.ghostPaths,
+        projectComplete: this.data.projectComplete,
       }, null, 2);
     }
 
     exportToFile() {
       const json = this.exportJSON();
       const blob = new Blob([json], { type: "application/json" });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href     = url;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
       a.download = `genetic-ai-completers-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
@@ -264,13 +287,13 @@
         const srcByTrack = imp.completersByTrack || imp.bestByTrack || {};
 
         [0, 1, 2].forEach(idx => {
-          const key      = String(idx);
+          const key = String(idx);
           const incoming = srcByTrack[key] || [];
           // Filtra apenas completadores do arquivo importado
           const incomingCompleters = incoming.filter(c => c.completed !== false);
           const existing = this.data.completersByTrack[key] || [];
-          const merged   = [...existing, ...incomingCompleters];
-          const deduped  = Array.from(
+          const merged = [...existing, ...incomingCompleters];
+          const deduped = Array.from(
             new Map(merged.map(c => [c.timestamp + "_" + Math.round(c.fitness), c])).values()
           );
           deduped.sort((a, b) => b.fitness - a.fitness);
@@ -279,7 +302,7 @@
 
         // Universais
         const incomingU = imp.universalCompleters || [];
-        const mergedU   = [...this.data.universalCompleters, ...incomingU];
+        const mergedU = [...this.data.universalCompleters, ...incomingU];
         mergedU.sort((a, b) => b.fitness - a.fitness);
         this.data.universalCompleters = mergedU.slice(0, MAX_UNIVERSAL);
 
@@ -305,9 +328,9 @@
 
     importFromFile() {
       return new Promise((resolve) => {
-        const input    = document.createElement("input");
-        input.type     = "file";
-        input.accept   = ".json,application/json";
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".json,application/json";
         input.onchange = (e) => {
           const file = e.target.files[0];
           if (!file) { resolve(false); return; }
@@ -330,9 +353,9 @@
       try {
         const entry = JSON.parse(jsonString);
         if (!entry.brain) return false;
-        entry.completed  = true; // forçado ao importar manualmente
+        entry.completed = true; // forçado ao importar manualmente
         entry.trackIndex = trackIndex;
-        entry.timestamp  = entry.timestamp || Date.now();
+        entry.timestamp = entry.timestamp || Date.now();
         this._registerCompleter(entry, trackIndex);
         this._persist();
         return true;

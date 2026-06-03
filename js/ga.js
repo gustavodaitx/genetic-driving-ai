@@ -15,101 +15,102 @@
  *  3. Taxa de mutação adaptativa continua, mas os completadores da elite
  *     recebem mutação mínima (isElite=true) para não destruir o que funciona.
  */
+/**
+ * GeneticAlgorithm v4 — Otimizado para Aprendizado Acelerado e Alta Retenção
+ */
 (function (global) {
   class GeneticAlgorithm {
     constructor(options = {}) {
-      this.populationSize   = options.populationSize   ?? 200;
-      this.eliteClones      = options.eliteClones      ?? 15;
-      this.mutationRate     = options.mutationRate     ?? 0.12;
-      this.crossoverRate    = options.crossoverRate    ?? 0.96;
+      this.populationSize = options.populationSize ?? 200;
+      this.eliteClones = options.eliteClones ?? 15;
+      this.mutationRate = options.mutationRate ?? 0.12;
+      this.crossoverRate = options.crossoverRate ?? 0.96;
       this.mutationStrength = options.mutationStrength ?? 0.20;
-      this.tournamentSize   = options.tournamentSize   ?? 5;
+      this.tournamentSize = options.tournamentSize ?? 5;
 
       this.generation = 1;
       this.population = [];
-      this.ghostPath  = null;
+      this.ghostPath = null;
       this.stats = { bestFitness: 0, avgFitness: 0, bestDistance: 0, completorsThisGen: 0 };
     }
 
     // ── Taxa de mutação adaptativa ─────────────────────────────────────────
     getAdaptiveMutationRate(trackIndex = 0) {
-      // Determina a geração relativa dentro da pista (bloco de 6 gerações)
-      // Se a geração passar de 18, fazemos mod 6 para continuar o ciclo caso necessário.
       const trackGen = ((this.generation - 1) % 6) + 1;
-      
-      // Ajuste de balanceamento fino para transferência de aprendizado:
-      // Na primeira geração da nova pista, aumentamos a taxa para explorar o traçado novo.
-      // Nas seguintes, reduzimos progressivamente para convergir e maximizar os sobreviventes.
-      if (trackGen === 1) return 0.14;
-      if (trackGen === 2) return 0.08;
-      if (trackGen === 3) return 0.045;
-      if (trackGen === 4) return 0.022;
-      if (trackGen === 5) return 0.010;
-      return 0.004;
+
+      // Se for a Pista 3 (índice 2), usamos uma abordagem muito mais conservadora
+      if (trackIndex === 2) {
+        if (trackGen === 1) return 0.050; // Metade do original: exploração sutil do novo ambiente
+        if (trackGen === 2) return 0.030; // Refinamento
+        if (trackGen === 3) return 0.015; // Foco total em estabilizar sobreviventes
+        if (trackGen === 4) return 0.008;
+        if (trackGen === 5) return 0.004;
+        return 0.001;
+      }
+
+      // Pistas 1 e 2 continuam com o padrão equilibrado
+      if (trackGen === 1) return 0.10;
+      if (trackGen === 2) return 0.06;
+      if (trackGen === 3) return 0.035;
+      if (trackGen === 4) return 0.018;
+      if (trackGen === 5) return 0.008;
+      return 0.002;
     }
 
     // ── Criação da população inicial ───────────────────────────────────────
-    /**
-     * seedBrains: array de { genome: [...] } vindos do StorageManager.
-     * Os primeiros seedBrains.length indivíduos entram SEM mutação (preservados).
-     * O restante é gerado mutando esses seeds levemente.
-     */
     createInitialPopulation(track, seedBrains = null, ghostPath = null) {
       this.population = [];
-      this.ghostPath  = ghostPath;
+      this.ghostPath = ghostPath;
 
-      const hasSeed  = seedBrains && seedBrains.length > 0;
+      const hasSeed = seedBrains && seedBrains.length > 0;
       const seedCount = hasSeed ? seedBrains.length : 0;
 
       for (let i = 0; i < this.populationSize; i++) {
         let brain;
 
         if (hasSeed) {
+          // CORREÇÃO CRÍTICA: Sempre clonar a semente para evitar poluição de memória por referência
           const srcBrain = NeuralNetwork.fromJSON(seedBrains[i % seedCount]);
+
           if (i < seedCount) {
-            // Primeiros N: entram puros, sem mutação — preservam o comportamento de conclusão
-            brain = srcBrain;
+            // Primeiros N: entram 100% puros para garantir a preservação do conhecimento
+            brain = srcBrain.clone();
           } else {
-            // Resto: mutação leve sobre os seeds para manter diversidade
-            brain = srcBrain;
-            brain.mutate(this.getAdaptiveMutationRate(track.index) * 0.5, 0.10, true);
+            // Resto: Variações controladas ao redor do conhecimento existente
+            brain = srcBrain.clone();
+            // Mutação suave inicial para não quebrar a lógica de direção do piloto
+            brain.mutate(this.getAdaptiveMutationRate(track.index) * 0.25, 0.05, true);
           }
         } else {
-          // Sem semente: rede aleatória com instintos básicos
+          // Sem semente: rede aleatória limpa
           brain = new NeuralNetwork();
           brain.mutate(0.25, 0.15, false);
         }
 
-        this.population.push(new Car(brain, track, {
+        const car = new Car(brain, track, {
           generation: this.generation,
-          ghostPath:  this.ghostPath,
-        }));
+          ghostPath: this.ghostPath,
+        });
+        // Campeões salvos (seeds puros) são imunes a obstáculos aleatórios
+        if (hasSeed && i < seedCount) car.isChampion = true;
+        this.population.push(car);
       }
     }
 
-    /**
-     * Modo Corrida: cria população de 200 baseada na MELHOR população salva.
-     * Usa o melhor genoma disponível e gera 200 variações com mutação mínima
-     * para uma corrida competitiva com diversidade controlada.
-     *
-     * @param {Track} track - pista atual
-     * @param {Array} raceSeeds - array de brains JSON vindos do storage (melhor primeiro)
-     * @param {*} ghostPath - ghost path opcional
-     */
+    // ── Modo Corrida ───────────────────────────────────────────────────────
     createRacePopulation(track, raceSeeds = null, ghostPath = null) {
       this.population = [];
-      this.ghostPath  = ghostPath;
+      this.ghostPath = ghostPath;
 
       const hasSeeds = raceSeeds && raceSeeds.length > 0;
 
       if (!hasSeeds) {
-        // Sem seeds: cria população aleatória de 200
         for (let i = 0; i < this.populationSize; i++) {
           const brain = new NeuralNetwork();
           brain.mutate(0.25, 0.15, false);
           this.population.push(new Car(brain, track, {
             generation: this.generation,
-            ghostPath:  this.ghostPath,
+            ghostPath: this.ghostPath,
           }));
         }
         return;
@@ -118,24 +119,26 @@
       const seedCount = raceSeeds.length;
 
       for (let i = 0; i < this.populationSize; i++) {
-        // Cicla pelos seeds disponíveis (round-robin)
-        const srcJSON  = raceSeeds[i % seedCount];
+        const srcJSON = raceSeeds[i % seedCount];
         const srcBrain = NeuralNetwork.fromJSON(srcJSON);
 
         if (i < seedCount) {
-          // Primeiros N (um por seed): entra PURO — representantes fiéis de cada genoma salvo
-          this.population.push(new Car(srcBrain, track, {
+          // Representantes puristas — imunes a obstáculos (campeões confirmados)
+          const car = new Car(srcBrain.clone(), track, {
             generation: this.generation,
-            ghostPath:  this.ghostPath,
-          }));
+            ghostPath: this.ghostPath,
+          });
+          car.isChampion = true;
+          this.population.push(car);
         } else {
-          // Restantes: variações com mutação mínima para diversidade na corrida
-          // Mutação decresce conforme mais carros são criados (elites mais fiéis ao original)
-          const mutStrength = i < seedCount * 3 ? 0.02 : 0.06;
-          srcBrain.mutate(0.03, mutStrength, true); // mutação mínima, isElite=true
-          this.population.push(new Car(srcBrain, track, {
+          // CORREÇÃO CRÍTICA: .clone() antes de aplicar mutações competitivas discretas
+          const brainClone = srcBrain.clone();
+          const mutStrength = i < seedCount * 3 ? 0.01 : 0.04;
+          brainClone.mutate(0.02, mutStrength, true);
+
+          this.population.push(new Car(brainClone, track, {
             generation: this.generation,
-            ghostPath:  this.ghostPath,
+            ghostPath: this.ghostPath,
           }));
         }
       }
@@ -153,57 +156,74 @@
 
     // ── Evolução ──────────────────────────────────────────────────────────
     evolve(track, nextTrack = track) {
-      // 1. Calcula fitness de todos no track atual (onde eles correram)
+      // Ajuste dinâmico de elitismo para pistas complexas
+      // Mantém mais cópias dos melhores carros vivas na pista 3
+      const activeEliteClones = track.index === 2 ? Math.floor(this.eliteClones * 1.5) : this.eliteClones;
+      // 1. Calcula fitness de todos no track atual
       this.population.forEach(car => car.computeFitness(track));
 
       // 2. Separa completadores de não-completadores
-      const completers    = this.population.filter(c => c.completed);
+      const completers = this.population.filter(c => c.completed);
       const nonCompleters = this.population.filter(c => !c.completed);
 
       // 3. Ordena cada grupo internamente por fitness
-      completers.sort(   (a, b) => b.fitness - a.fitness);
+      completers.sort((a, b) => b.fitness - a.fitness);
       nonCompleters.sort((a, b) => b.fitness - a.fitness);
 
-      // 4. Elite: completadores primeiro, depois melhores não-completadores
-      //    Isso garante que genes de conclusão sempre entram na próxima geração
+      // 4. Elite: completadores primeiro
       const elitePool = [...completers, ...nonCompleters];
 
-      // Stats
-      this.stats.bestFitness       = elitePool[0]?.fitness       || 0;
-      this.stats.bestDistance      = elitePool[0]?.checkpointIndex || 0;
+      // Mapeamento de estatísticas
+      this.stats.bestFitness = elitePool[0]?.fitness || 0;
+      this.stats.bestDistance = elitePool[0]?.checkpointIndex || 0;
       this.stats.completorsThisGen = completers.length;
       this.stats.avgFitness = this.population.reduce((s, c) => s + c.fitness, 0) / this.populationSize;
 
       const children = [];
-      const mutRate  = this.getAdaptiveMutationRate(nextTrack.index);
+      const mutRate = this.getAdaptiveMutationRate(nextTrack.index);
 
-      // 5. Clone puro do melhor absoluto (sem mutação), nascido na próxima pista
+      // 5. Clone puro do campeão absoluto (Garante estabilidade e elitismo estrito)
       if (elitePool[0]) {
-        children.push(new Car(elitePool[0].brain.clone(), nextTrack, {
+        const eliteCar = new Car(elitePool[0].brain.clone(), nextTrack, {
           generation: this.generation + 1,
-          ghostPath:  this.ghostPath,
-        }));
+          ghostPath: this.ghostPath,
+        });
+        // Campeão absoluto é imune a obstáculos — já provou que completa a pista
+        if (elitePool[0].completed) eliteCar.isChampion = true;
+        children.push(eliteCar);
       }
 
-      // 6. Clones de elite (mutação mínima, isElite=true), nascidos na próxima pista
-      for (let i = 1; i < this.eliteClones && i < elitePool.length; i++) {
+      // 6. Clones de elite (Ajuste para micro-exploração na pista 3)
+      for (let i = 1; i < this.activeEliteClones && i < elitePool.length; i++) {
         const b = elitePool[i].brain.clone();
-        b.mutate(mutRate, this.mutationStrength, true);
+        // Se for pista 3, reduz a força do desvio para apenas 5% (0.05), preservando o cérebro
+        const strength = track.index === 2 ? 0.05 : this.mutationStrength * 0.5;
+        b.mutate(mutRate * 0.3, strength, true);
         children.push(new Car(b, nextTrack, {
           generation: this.generation + 1,
-          ghostPath:  this.ghostPath,
+          ghostPath: this.ghostPath,
         }));
       }
 
-      // 7. Filhos via crossover a partir do pool completo, nascidos na próxima pista
+      // 7. Filhos via crossover dinâmico
       while (children.length < this.populationSize) {
         const pa = this.tournamentSelect(elitePool);
         const pb = this.tournamentSelect(elitePool);
-        const childBrain = NeuralNetwork.crossover(pa.brain, pb.brain, this.crossoverRate);
-        childBrain.mutate(mutRate, this.mutationStrength, false);
+
+        let childBrain;
+        if (Math.random() < this.crossoverRate) {
+          childBrain = NeuralNetwork.crossover(pa.brain, pb.brain, this.crossoverRate);
+        } else {
+          childBrain = pa.fitness > pb.fitness ? pa.brain.clone() : pb.brain.clone();
+        }
+
+        // Reduz a força de mutação dos filhos na pista 3 para evitar mortes em massa
+        const currentStrength = track.index === 2 ? 0.08 : this.mutationStrength;
+        childBrain.mutate(mutRate, currentStrength, false);
+
         children.push(new Car(childBrain, nextTrack, {
           generation: this.generation + 1,
-          ghostPath:  this.ghostPath,
+          ghostPath: this.ghostPath,
         }));
       }
 
@@ -217,14 +237,14 @@
     getBestCar() {
       if (!this.population.length) return null;
       const score = c => c.checkpointIndex * 1000 + c.totalSpeed * 0.1;
-      const alive  = this.population.filter(c => c.alive);
-      const pool   = alive.length ? alive : this.population;
+      const alive = this.population.filter(c => c.alive);
+      const pool = alive.length ? alive : this.population;
       return [...pool].sort((a, b) => score(b) - score(a))[0];
     }
 
     setRates(mutation, crossover) {
-      if (mutation  != null) this.mutationRate  = Math.max(0.001, Math.min(0.2,  mutation));
-      if (crossover != null) this.crossoverRate = Math.max(0.1,   Math.min(0.99, crossover));
+      if (mutation != null) this.mutationRate = Math.max(0.001, Math.min(0.2, mutation));
+      if (crossover != null) this.crossoverRate = Math.max(0.1, Math.min(0.99, crossover));
     }
 
     setPopulationSize(size) { this.populationSize = size; }
